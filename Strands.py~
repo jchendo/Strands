@@ -1,0 +1,88 @@
+
+from os import system
+import pygame as pg
+import numpy as np
+
+## TO DO (not in any particular order) - complete by 02/19/25:
+## 1. determine how to arrange words/letters randomly without isolating individual letters/making it impossible to construct remaining words
+## 2. figure out how to save progress on a given game in case she wants to come back to it later
+## 3. implement word/topic selection, likely using ChatGPT API (?)
+## 4. port game to an iOS friendly language/developing environment
+## -----side bar, 4 might be very difficult. I believe Unity is capable of iOS development, but I haven't used it in a while.
+## 5. different difficulty levels?
+## 6. general setup & visuals, home screen, etc.
+## 7. OPTIONAL, kinda: implement network connectivity so we can play together? or perhaps just so it can be a web app before iOS.
+
+## board object since i'm assuming we'll have multiple (?) at once
+class Board:
+
+    ## CLASS VARIABLES ##
+    board = np.empty([8,6],dtype=str) ## going to be letters
+    words = np.fromfile("./dat/strands1.txt", dtype=np.str_,count=8,sep=" ")
+    print(words)
+    ## CLASS VARIABLES ## 
+
+    def __init__(self, screen):
+        
+        ## 8 rows x 6 columns (48 total letters)
+        
+        for i in range(8):
+            ## Changes which row the squares are drawn on.
+            rowCoord = 200 + (i*60)
+            
+            for j in range(6):
+                colCoord = 20 + (j*60)
+                ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
+                pg.draw.rect(screen, "grey", pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                pg.display.flip()
+                
+    def fillBoard(self):
+        print()
+        ## place 
+
+## put the game in a class for cleanliness
+## not sure if it's really necessary
+
+class Strands:
+    
+    ## CLASS VARIABLES
+    screen = pg.display.set_mode((400, 867))
+    running = True
+    ## CLASS VARIABLES
+
+    def update():
+        return
+
+    def envSetup(self): 
+        self.screen.fill("white")
+        pg.display.set_caption("Strands")
+
+        print("setup complete")
+    
+    def eventHandler(self):
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                self.running = False
+                
+    ## core loop
+    def run(self):
+        
+        self.envSetup() ## redundant for now
+        board = Board(self.screen)
+        
+        while self.running:
+            
+            self.eventHandler()
+            pg.display.flip()
+            
+        pg.quit()
+
+def main():
+    
+    pg.init()
+    
+    game = Strands()
+    game.run()
+
+if __name__ == main():
+    main()
