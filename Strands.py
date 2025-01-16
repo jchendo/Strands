@@ -1,5 +1,4 @@
-
-from os import system
+import os
 import pygame as pg
 import numpy as np
 
@@ -7,8 +6,6 @@ import numpy as np
 ## 1. determine how to arrange words/letters randomly without isolating individual letters/making it impossible to construct remaining words
 ## 2. figure out how to save progress on a given game in case she wants to come back to it later
 ## 3. implement word/topic selection, likely using ChatGPT API (?)
-## 4. port game to an iOS friendly language/developing environment
-## -----side bar, 4 might be very difficult. I believe Unity is capable of iOS development, but I haven't used it in a while.
 ## 5. different difficulty levels?
 ## 6. general setup & visuals, home screen, etc.
 ## 7. OPTIONAL, kinda: implement network connectivity so we can play together? or perhaps just so it can be a web app before iOS.
@@ -22,13 +19,12 @@ class Board:
     board = np.empty([8,6],dtype=str) ## going to be letters
     letter_locs = np.empty([8,6],dtype=tuple)
     all_words = []
-    GAME_FONT = pg.font.SysFont('arial', 50)
     ## CLASS VARIABLES ## 
 
-    def __init__(self, screen):
+    def __init__(self, screen, GAME_FONT):
         
         ## asset loading
-        fpath = "./dat/strands1.txt"
+        fpath = "./dat/strands1.txt" ## this is going to be moved into asset loading (Strands class below)
         text = open(fpath)
         for line in text.readlines():
             words = line.split(", ")
@@ -62,7 +58,7 @@ class Board:
                 
                 for letter in word:
                     
-                    text_surface = self.GAME_FONT.render(letter, False, (0, 0, 0))
+                    text_surface = Strands.GAME_FONT.render(letter, False, (0, 0, 0))
                     next_position = self.detNextLetterPos(next_position, letter, word, spangram)
                     Strands.screen.blit(text_surface, next_position)
                     pg.display.flip()
@@ -99,30 +95,82 @@ class Board:
 class Strands:
     
     ## CLASS VARIABLES
+    GAME_FONT = pg.font.SysFont('arial', 50, bold=True)
+    pictures = {}
     screen = pg.display.set_mode((400, 867))
     running = True
+    start = False
     ## CLASS VARIABLES
 
     def update():
         return
 
-    def envSetup(self): 
+    def setup(self): 
         self.screen.fill("pink")
         pg.display.set_caption("Strands")
 
+        title_text = self.GAME_FONT.render('STRANDS', True, (135, 20, 0))
+        
+        ## dictionary of all text i want on main screen to make it a little easier to place them all w/o a bunch of lines?
+        ## idk of that'll work
+        
+        menu_text = {'I love you :)': (110, 150, 0, 0),'START': (150,600,0,0), 'SETTINGS': (115,700,0,0)} # ... etc
+        home_screen_font = pg.font.SysFont('forte', 35) ## editing fonts (GAME_FONT) is dogshit in pygame so I just made a new one
+        
+        ## title text, if hasn't clicked start, board display otherwise
+        if not self.start:
+            
+            self.screen.blit(self.pictures['heart.png'], (40,250,0,0))
+            self.screen.blit(self.pictures['kiera1.jpeg'], (140,315,0,0))
+            self.screen.blit(title_text, (100, 50, 0, 0))
+            
+            for text in menu_text:
+                txt_surface = home_screen_font.render(text, True, (135, 20, 0))
+                self.screen.blit(txt_surface,menu_text[text])
+                
+        else:
+            board = Board(self.screen, self.GAME_FONT)
+            board.fillBoard()
+
         print("setup complete")
+       
+    def loadAssets(self):
+        
+        directory = "./dat/pictures"
+
+        for filename in os.listdir(directory):
+            
+            filepath = os.path.join(directory, filename)
+            image = pg.image.load(filepath).convert_alpha()
+            width, height = image.get_size()
+            sf = 0.25
+            
+            image = pg.transform.scale(image, (width * sf, height*sf))
+            self.pictures[filename] = image
     
     def eventHandler(self):
         for event in pg.event.get():
+            
             if event.type == pg.QUIT:
                 self.running = False
+                
+            if event.type == pg.MOUSEBUTTONDOWN:
+                mouse_pos = pg.mouse.get_pos()
+                if not self.start:
+                    ## check if on the start button/do other detection for buttons
+                    
+                    if mouse_pos:
+                        pass
+                else:
+                    ## game board interaction handling
+                    pass
+                
                 
     ## core loop
     def run(self):
         
-        self.envSetup() ## redundant for now
-        board = Board(self.screen)
-        board.fillBoard()
+        self.loadAssets()
+        self.setup()
         
         while self.running:
             
