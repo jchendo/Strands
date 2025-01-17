@@ -24,7 +24,7 @@ class Board:
     def __init__(self, screen, GAME_FONT):
         
         ## asset loading
-        fpath = "./dat/strands1.txt" ## this is going to be moved into asset loading (Strands class below)
+        fpath = "./dat/text/strands1.txt" 
         text = open(fpath)
         for line in text.readlines():
             words = line.split(", ")
@@ -48,13 +48,18 @@ class Board:
         next_position = np.random.choice(self.letter_locs[:][1])
         ## Algorithm for placing letters
         for words in self.all_words:
-            gameTitle = words[0]
-            
+            game_title = words[0]
+            spangram = words[1]
             for word in words:
-                if word == gameTitle:
+                if word == game_title:
+
+                    title_text = Strands.GAME_FONT.render(game_title, True, (0,0,0))
+                    x_loc = (Strands.screen.get_width() / len(game_title)) + 30 ## this is pretty jank lol & doesn't scale that well but it's fine for now
+
+                    Strands.screen.blit(title_text, (x_loc,50,0,0))
+
+                elif word == spangram:
                     continue
-                elif word == words[1]:
-                    spangram = word
                 
                 for letter in word:
                     
@@ -69,7 +74,6 @@ class Board:
         ## helper method for detNextLetterPos()
         ## takes pos input as board coords ([8,6]) and checks all adjacent squares'
         open_squares = []
-        print("meow")
         try:
             ## check left edge
             for i in range(-1,2):
@@ -106,6 +110,7 @@ class Strands:
         return
 
     def setup(self): 
+
         self.screen.fill("pink")
         pg.display.set_caption("Strands")
 
@@ -127,12 +132,15 @@ class Strands:
             for text in menu_text:
                 txt_surface = home_screen_font.render(text, True, (135, 20, 0))
                 self.screen.blit(txt_surface,menu_text[text])
+
+            return menu_text
                 
         else:
+
             board = Board(self.screen, self.GAME_FONT)
             board.fillBoard()
 
-        print("setup complete")
+            return board
        
     def loadAssets(self):
         
@@ -145,22 +153,34 @@ class Strands:
             width, height = image.get_size()
             sf = 0.25
             
-            image = pg.transform.scale(image, (width * sf, height*sf))
+            image = pg.transform.scale(image, (width*sf, height*sf))
             self.pictures[filename] = image
     
-    def eventHandler(self):
+    def eventHandler(self, text): ## probably a little jank to have text as an argument here but i don't think this needs to be super clean
+
         for event in pg.event.get():
             
             if event.type == pg.QUIT:
                 self.running = False
                 
             if event.type == pg.MOUSEBUTTONDOWN:
+
                 mouse_pos = pg.mouse.get_pos()
                 if not self.start:
                     ## check if on the start button/do other detection for buttons
-                    
-                    if mouse_pos:
+                    start_loc = text['START']
+                    settings_loc = text['SETTINGS']
+
+                    if ((mouse_pos[0] >= start_loc[0] and mouse_pos[0] <= start_loc[0] + 80) 
+                    and (mouse_pos[1] >= start_loc[1] and mouse_pos[1] <= start_loc[1]+30)):
+
+                        self.start = True
+                        self.setup()
+
+                    elif mouse_pos:
                         pass
+                        # settings
+
                 else:
                     ## game board interaction handling
                     pass
@@ -170,11 +190,11 @@ class Strands:
     def run(self):
         
         self.loadAssets()
-        self.setup()
-        
+        text = self.setup() ## setup returns a dictionary w/ title text & their respective locations. 
+                            ## helpful for checking if buttons have been pressed; see eventHandler()
         while self.running:
-            
-            self.eventHandler()
+
+            self.eventHandler(text)
             pg.display.flip()
             
         pg.quit()
