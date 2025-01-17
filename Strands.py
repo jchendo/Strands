@@ -45,7 +45,7 @@ class Board:
                 
     def fillBoard(self):
         ## to start
-        curr_position = np.random.choice(self.letter_locs[:][1])
+        curr_position = (np.random.randint(0,9), np.random.randint(0,7)) ## board pos
         ## Algorithm for placing letters
         for words in self.all_words:
             game_title = words[0]
@@ -63,18 +63,34 @@ class Board:
                 
                 for letter in word:
                     
-                    text_surface = Strands.GAME_FONT.render(letter, False, (0, 0, 0))
+                    text_surface = Strands.GAME_FONT.render(letter, True, (0, 0, 0))
                     next_position = self.randomLocation(curr_position)
 
                     while not self.areEmptyConnected(next_position):
                         next_position = self.randomLocation(curr_position)
-                        curr_position = next_position
+                    
+                    curr_position = next_position
+                    ## the below line throws an error for now due to areEmptyConnected() not being implemented yet
+                    #self.board[curr_position] = letter
 
-                    Strands.screen.blit(text_surface, next_position)
+                    Strands.screen.blit(text_surface, self.letter_locs[next_position])
                     pg.display.flip()
 
-    def randomLocation(self, currLetterPos): ## picks a random letter position out of the 8 surrounding currLetterPos
-        pass
+    def randomLocation(self, curr_position): ## picks a random letter position out of the 8 surrounding currLetterPos
+        open_square_loc = []
+
+        for i in range(-1,2): ## has to have values -1, 0, 1 in order to get the rows above, equal, and below currLetterPos
+            if (curr_position[0] - i) >= 8 or (curr_position[0] - i) < 0:
+                continue
+            for j in range(-1,2): ## same logic for columns
+                if (curr_position[1] - j) >= 6 or (curr_position[1] - j) < 0:
+                    continue
+                if self.board[curr_position[0]-i][curr_position[1]-j] == '':
+                    open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
+        
+        index = np.random.choice(np.arange(len(open_square_loc))) ## np.random glitches if I try to simply pick a random tuple from the list
+
+        return open_square_loc[index]
 
     def areEmptyConnected(self, letter_loc): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
         if True: ## condition tbd
