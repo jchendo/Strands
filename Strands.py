@@ -45,7 +45,7 @@ class Board:
                 
     def fillBoard(self):
         ## to start
-        next_position = np.random.choice(self.letter_locs[:][1])
+        curr_position = np.random.choice(self.letter_locs[:][1])
         ## Algorithm for placing letters
         for words in self.all_words:
             game_title = words[0]
@@ -64,37 +64,23 @@ class Board:
                 for letter in word:
                     
                     text_surface = Strands.GAME_FONT.render(letter, False, (0, 0, 0))
-                    next_position = self.detNextLetterPos(next_position, letter, word, spangram)
+                    next_position = self.randomLocation(curr_position)
+
+                    while not self.areEmptyConnected(next_position):
+                        next_position = self.randomLocation(curr_position)
+                        curr_position = next_position
+
                     Strands.screen.blit(text_surface, next_position)
                     pg.display.flip()
 
-    
+    def randomLocation(self, currLetterPos): ## picks a random letter position out of the 8 surrounding currLetterPos
+        pass
 
-    def checkGrid(self, pos):
-        ## helper method for detNextLetterPos()
-        ## takes pos input as board coords ([8,6]) and checks all adjacent squares'
-        open_squares = []
-        try:
-            ## check left edge
-            for i in range(-1,2):
-                square = self.board[pos[0]-1][pos[1]-i]
-                if square == '':
-                    open_squares.append(square)
-                    print(open_squares)
-        except IndexError:
-            pass
-            ## put this in a loop
-    def detNextLetterPos(self, currLetterPos, letter, word, spangram):
-        ## figure out where to place the next letter to ensure no islands
-        try:
-            self.checkGrid(currLetterPos)
-        except:
-            pass
-        
-        return currLetterPos
-        
-## put the game in a class for cleanliness
-## not sure if it's really necessary
+    def areEmptyConnected(self, letter_loc): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
+        if True: ## condition tbd
+            return True # if all connected 
+        else:
+            return False
 
 class Strands:
     
@@ -117,7 +103,6 @@ class Strands:
         title_text = self.GAME_FONT.render('STRANDS', True, (135, 20, 0))
         
         ## dictionary of all text i want on main screen to make it a little easier to place them all w/o a bunch of lines?
-        ## idk of that'll work
         
         menu_text = {'I love you :)': (110, 150, 0, 0),'START': (150,600,0,0), 'SETTINGS': (115,700,0,0)} # ... etc
         home_screen_font = pg.font.SysFont('forte', 35) ## editing fonts (GAME_FONT) is dogshit in pygame so I just made a new one
