@@ -1,6 +1,8 @@
 import os
+import time
 import pygame as pg
 import numpy as np
+import threading
 
 ## TO DO (not in any particular order) - complete by 02/19/25:
 ## 1. determine how to arrange words/letters randomly without isolating individual letters/making it impossible to construct remaining words
@@ -108,7 +110,44 @@ class Strands:
     start = False
     ## CLASS VARIABLES
 
-    def update():
+    def update(self):
+        ## just updating screen for now
+        if not self.start:
+            self.screen.fill('pink')
+            self.setup()
+        pg.display.flip()
+
+    def spawnHearts(self):
+        ## animates the hearts that appear on the homescreen
+        sf = 0.05
+        num_hearts = 1 ## number to appear on screen at once
+        heart = self.pictures['heart.png']
+        width, height = heart.get_size()
+        heart = pg.transform.scale(heart, (width*sf, height*sf))
+        
+        while not self.start:
+            
+            spawn_coords = np.random.randint(0, 380, size=num_hearts)
+
+            for i in range(num_hearts):
+                if self.start:
+                    break
+                time.sleep(1)
+                subthread = threading.Thread(target=self.animateHearts, args=(heart, spawn_coords[i]))
+                subthread.start()
+            
+    def animateHearts(self, heart, x_coord):
+        ## This threading thing is wack a little bit
+        y_coord = 0
+
+        while y_coord <= 867 and not self.start: ## this whole self.start thing really just needs to be hammered home apparently? it keeps breaking
+            time.sleep(0.0001)
+            
+            #self.setup()
+            self.screen.blit(heart, (x_coord, y_coord))
+            
+            y_coord += 0.07
+        
         return
 
     def setup(self): 
@@ -176,6 +215,7 @@ class Strands:
                     and (mouse_pos[1] >= start_loc[1] and mouse_pos[1] <= start_loc[1]+30)):
 
                         self.start = True
+                        
                         self.setup()
 
                     elif mouse_pos:
@@ -193,10 +233,14 @@ class Strands:
         self.loadAssets()
         text = self.setup() ## setup returns a dictionary w/ title text & their respective locations. 
                             ## helpful for checking if buttons have been pressed; see eventHandler()
+        
+        thread = threading.Thread(target=self.spawnHearts)
+        thread.start()
+        
         while self.running:
 
             self.eventHandler(text)
-            pg.display.flip()
+            self.update()
             
         pg.quit()
 
