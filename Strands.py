@@ -4,6 +4,10 @@ import pygame as pg
 import numpy as np
 import threading
 
+from pygame.mixer import music
+import pygame_widgets as pgw ##  type: ignore
+from pygame_widgets.slider import Slider
+
 ## TO DO (not in any particular order) - complete by 02/19/25:
 ## 1. determine how to arrange words/letters randomly without isolating individual letters/making it impossible to construct remaining words
 ## 2. figure out how to save progress on a given game in case she wants to come back to it later
@@ -15,7 +19,7 @@ import threading
 ## board object since i'm assuming we'll have multiple (?) at once
 class Board:
 
-    pg.font.init()
+    #pg.font.init()
 
     ## CLASS VARIABLES ##
     board = np.empty([8,6],dtype=str) ## going to be letters
@@ -43,7 +47,7 @@ class Board:
                 ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
                 pg.draw.rect(screen, "red", pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                 self.letter_locs[i][j] = (colCoord, rowCoord)
-                pg.display.flip()
+                
                 
     def fillBoard(self):
         ## to start
@@ -76,7 +80,7 @@ class Board:
                     #self.board[curr_position] = letter
 
                     Strands.screen.blit(text_surface, self.letter_locs[next_position])
-                    pg.display.flip()
+                    
 
     def randomLocation(self, curr_position): ## picks a random letter position out of the 8 surrounding currLetterPos
         open_square_loc = []
@@ -102,57 +106,67 @@ class Board:
 
 class Strands:
     
+    ## INITS
+    pg.mixer.init()
+    pg.font.init()
     ## CLASS VARIABLES
     GAME_FONT = pg.font.SysFont('arial', 50, bold=True)
     pictures = {}
+    songs = {}
+    title_screen_song = 'Acolyte.mp3'
+    music_volume = 0.25
+    channel = pg.mixer.Channel(0)
     screen = pg.display.set_mode((400, 867))
+    volume_slider = pgw.slider.Slider(screen, 250, 50, 100, 25, min=0, max=99, initial = music_volume * 100)
     running = True
     start = False
+    settings = False
     ## CLASS VARIABLES
 
-    def update(self):
+    def update(self, event):
         ## just updating screen for now
         if not self.start:
             self.screen.fill('pink')
             self.setup()
-        pg.display.flip()
+            if self.settings: ## this whole thing is a little jank & so laggy but it works for now
+                pgw.update(event)
+        pg.display.update()
 
     def spawnHearts(self):
         ## animates the hearts that appear on the homescreen
         sf = 0.05
-        num_hearts = 1 ## number to appear on screen at once
+        num_hearts = 75 ## number to appear on screen at once
         heart = self.pictures['heart.png']
         width, height = heart.get_size()
         heart = pg.transform.scale(heart, (width*sf, height*sf))
-        
-        while not self.start:
-            
-            spawn_coords = np.random.randint(0, 380, size=num_hearts)
 
-            for i in range(num_hearts):
-                if self.start:
-                    break
-                time.sleep(1)
-                subthread = threading.Thread(target=self.animateHearts, args=(heart, spawn_coords[i]))
-                subthread.start()
+        heart_locs = []
+
+        for i in range(num_hearts):
+           x_coords = np.random.randint(0, self.screen.get_width(), size=num_hearts)
+           y_coords = np.random.randint(-1000, 0, size=num_hearts) ## spawns some outside the screen to stagger the waterfall
+           heart_locs.append([x_coords[i], y_coords[i]])
             
-    def animateHearts(self, heart, x_coord):
-        ## This threading thing is wack a little bit
+        while not self.start:
+            pg.time.delay(20)
+            self.animateHearts(heart,heart_locs)
+                  
+    def animateHearts(self, heart,heart_locs):
+        
         y_coord = 0
 
-        while y_coord <= 867 and not self.start: ## this whole self.start thing really just needs to be hammered home apparently? it keeps breaking
-            time.sleep(0.0001)
+        for i in range(len(heart_locs)):
             
-            #self.setup()
-            self.screen.blit(heart, (x_coord, y_coord))
-            
-            y_coord += 0.07
-        
+            self.screen.blit(heart, heart_locs[i])
+            heart_locs[i][1] += 1
+
+            if heart_locs[i][1] >= self.screen.get_height():
+                heart_locs[i] = [np.random.randint(0, self.screen.get_width()),np.random.randint(-1000, -25)]
+
         return
 
     def setup(self): 
-
-        self.screen.fill("pink")
+        
         pg.display.set_caption("Strands")
 
         title_text = self.GAME_FONT.render('STRANDS', True, (135, 20, 0))
@@ -162,20 +176,35 @@ class Strands:
         menu_text = {'I love you :)': (110, 150, 0, 0),'START': (150,600,0,0), 'SETTINGS': (115,700,0,0)} # ... etc
         home_screen_font = pg.font.SysFont('forte', 35) ## editing fonts (GAME_FONT) is dogshit in pygame so I just made a new one
         
+        if not self.channel.get_busy():
+            self.channel.set_volume(self.music_volume)
+            self.channel.play(self.songs[self.title_screen_song])
+        
         ## title text, if hasn't clicked start, board display otherwise
         if not self.start:
-            
-            self.screen.blit(self.pictures['heart.png'], (40,250,0,0))
-            self.screen.blit(self.pictures['kiera1.jpeg'], (140,315,0,0))
-            self.screen.blit(title_text, (100, 50, 0, 0))
-            
-            for text in menu_text:
-                txt_surface = home_screen_font.render(text, True, (135, 20, 0))
-                self.screen.blit(txt_surface,menu_text[text])
 
-            return menu_text
+            if not self.settings: ## different setup for settings menu vs. just reg homescreen
+                self.screen.blit(self.pictures['heart.png'], (40,250,0,0))
+                self.screen.blit(self.pictures['kiera1.jpeg'], (140,315,0,0))
+                self.screen.blit(title_text, (100, 50, 0, 0))
+            
+                for text in menu_text:
+                    txt_surface = home_screen_font.render(text, True, (135, 20, 0))
+                    self.screen.blit(txt_surface,menu_text[text])
+
+                return menu_text
+
+            else:
+                # settings
+                self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
+                self.music_volume = self.volume_slider.getValue() / 100
+                self.channel.set_volume(self.music_volume)
+                
                 
         else:
+           
+            self.screen.fill("pink") ## gets rid of all hearts & other stuff
+            self.channel.fadeout(2500)
 
             board = Board(self.screen, self.GAME_FONT)
             board.fillBoard()
@@ -184,11 +213,11 @@ class Strands:
        
     def loadAssets(self):
         
-        directory = "./dat/pictures"
+        directory = "./dat"
 
-        for filename in os.listdir(directory):
+        for filename in os.listdir(directory + '/pictures'): ## images
             
-            filepath = os.path.join(directory, filename)
+            filepath = os.path.join(directory + '/pictures', filename)
             image = pg.image.load(filepath).convert_alpha()
             width, height = image.get_size()
             sf = 0.25
@@ -196,6 +225,12 @@ class Strands:
             image = pg.transform.scale(image, (width*sf, height*sf))
             self.pictures[filename] = image
     
+        for filename in os.listdir(directory + '/sounds'):
+
+            filepath = os.path.join(directory + '/sounds', filename)
+            song = pg.mixer.Sound(filepath)
+            self.songs[filename] = song
+
     def eventHandler(self, text): ## probably a little jank to have text as an argument here but i don't think this needs to be super clean
 
         for event in pg.event.get():
@@ -211,36 +246,48 @@ class Strands:
                     start_loc = text['START']
                     settings_loc = text['SETTINGS']
 
+                    if self.settings:
+                            
+                        if ((mouse_pos[0] >= 0 and mouse_pos[0] <= 64) 
+                        and (mouse_pos[1] >= 0 and mouse_pos[1] <= 64)):
+
+                            self.settings = False
+                            self.setup()
+
                     if ((mouse_pos[0] >= start_loc[0] and mouse_pos[0] <= start_loc[0] + 80) 
                     and (mouse_pos[1] >= start_loc[1] and mouse_pos[1] <= start_loc[1]+30)):
 
                         self.start = True
-                        
                         self.setup()
 
-                    elif mouse_pos:
-                        pass
+                    elif ((mouse_pos[0] >= settings_loc[0] and mouse_pos[0] <= settings_loc[0] + 150) 
+                    and (mouse_pos[1] >= settings_loc[1] and mouse_pos[1] <= settings_loc[1]+30)):
+
+                        self.settings = True
+                        self.setup()
                         # settings
 
                 else:
                     ## game board interaction handling
                     pass
-                
-                
+
+            return event
+                           
     ## core loop
     def run(self):
         
+        
+
         self.loadAssets()
         text = self.setup() ## setup returns a dictionary w/ title text & their respective locations. 
                             ## helpful for checking if buttons have been pressed; see eventHandler()
-        
-        thread = threading.Thread(target=self.spawnHearts)
+        thread = threading.Thread(target=self.spawnHearts, daemon=True)
         thread.start()
         
         while self.running:
 
-            self.eventHandler(text)
-            self.update()
+            event = self.eventHandler(text)
+            self.update(event)
             
         pg.quit()
 
