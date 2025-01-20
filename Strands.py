@@ -6,7 +6,7 @@ import threading
 
 from pygame.mixer import music
 import pygame_widgets as pgw ##  type: ignore
-from pygame_widgets.slider import Slider
+from pygame_widgets.slider import Slider # type: ignore
 
 ## TO DO (not in any particular order) - complete by 02/19/25:
 ## 1. determine how to arrange words/letters randomly without isolating individual letters/making it impossible to construct remaining words
@@ -53,6 +53,8 @@ class Board:
         ## to start
         curr_position = (np.random.randint(0,9), np.random.randint(0,7)) ## board pos
         ## Algorithm for placing letters
+
+        start = time.time()
         for words in self.all_words:
             game_title = words[0]
             spangram = words[1]
@@ -68,41 +70,69 @@ class Board:
                     continue
                 
                 for letter in word:
+
                     
                     text_surface = Strands.GAME_FONT.render(letter, True, (0, 0, 0))
                     next_position = self.randomLocation(curr_position)
 
-                    while not self.areEmptyConnected(next_position):
+                    while not self.areEmptyConnected(next_position, start):
+                 
                         next_position = self.randomLocation(curr_position)
                     
                     curr_position = next_position
                     ## the below line throws an error for now due to areEmptyConnected() not being implemented yet
-                    #self.board[curr_position] = letter
+                    self.board[curr_position] = letter
 
+                    print(next_position)
                     Strands.screen.blit(text_surface, self.letter_locs[next_position])
                     
 
     def randomLocation(self, curr_position): ## picks a random letter position out of the 8 surrounding currLetterPos
         open_square_loc = []
 
-        for i in range(-1,2): ## has to have values -1, 0, 1 in order to get the rows above, equal, and below currLetterPos
-            if (curr_position[0] - i) >= 8 or (curr_position[0] - i) < 0:
-                continue
-            for j in range(-1,2): ## same logic for columns
-                if (curr_position[1] - j) >= 6 or (curr_position[1] - j) < 0:
+        try:
+
+            for i in range(-1,2): ## has to have values -1, 0, 1 in order to get the rows above, equal, and below currLetterPos
+                if (curr_position[0] - i) >= 8 or (curr_position[0] - i) < 0:
                     continue
-                if self.board[curr_position[0]-i][curr_position[1]-j] == '':
-                    open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
+                for j in range(-1,2): ## same logic for columns
+                    if (curr_position[1] - j) >= 6 or (curr_position[1] - j) < 0:
+                        continue
+                    if self.board[curr_position[0]-i][curr_position[1]-j] == '':
+                        open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
         
-        index = np.random.choice(np.arange(len(open_square_loc))) ## np.random glitches if I try to simply pick a random tuple from the list
+            index = np.random.choice(np.arange(len(open_square_loc))) ## np.random glitches if I try to simply pick a random tuple from the list
+            return open_square_loc[index]
 
-        return open_square_loc[index]
+        except:
 
-    def areEmptyConnected(self, letter_loc): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
-        if True: ## condition tbd
-            return True # if all connected 
-        else:
-            return False
+            return [(0,0)]
+
+    def areEmptyConnected(self, letter_loc,start): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
+        
+        ## identify if once a letter is placed, all empty spots are connected
+
+        
+        self.board[letter_loc] = '_'
+        position = self.randomLocation(letter_loc)
+        path = [position]
+        checking = True
+
+        while checking:
+            
+            elapsed = time.time() - start
+            if elapsed >= 3:
+                checking = False
+
+            next_pos = self.randomLocation(position)
+            if next_pos is not None and next_pos not in path:
+                position = next_pos
+                path.append(position)
+            else:
+                if '' not in self.board:
+                    return True
+                return False
+
 
 class Strands:
     
@@ -135,7 +165,7 @@ class Strands:
     def spawnHearts(self):
         ## animates the hearts that appear on the homescreen
         sf = 0.05
-        num_hearts = 75 ## number to appear on screen at once
+        num_hearts = 50 ## number to appear on screen at once
         heart = self.pictures['heart.png']
         width, height = heart.get_size()
         heart = pg.transform.scale(heart, (width*sf, height*sf))
@@ -159,6 +189,10 @@ class Strands:
             
             self.screen.blit(heart, heart_locs[i])
             heart_locs[i][1] += 1
+            heart_locs[i][0] += np.random.uniform(-0.33, 0.15) + 0.33
+
+            if heart_locs[i][0] >= self.screen.get_width():
+                heart_locs[i][0] = -15
 
             if heart_locs[i][1] >= self.screen.get_height():
                 heart_locs[i] = [np.random.randint(0, self.screen.get_width()),np.random.randint(-1000, -25)]
@@ -204,7 +238,7 @@ class Strands:
         else:
            
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
-            self.channel.fadeout(2500)
+            self.channel.fadeout(4000)
 
             board = Board(self.screen, self.GAME_FONT)
             board.fillBoard()
@@ -214,6 +248,8 @@ class Strands:
     def loadAssets(self):
         
         directory = "./dat"
+        progress = 0
+        dir_length = len(os.listdir(directory + '/pictures')) + len(os.listdir(directory + '/sounds'))
 
         for filename in os.listdir(directory + '/pictures'): ## images
             
@@ -224,12 +260,32 @@ class Strands:
             
             image = pg.transform.scale(image, (width*sf, height*sf))
             self.pictures[filename] = image
+
+            progress += 1
+            percent = float(progress / dir_length) 
+            surface = pg.Surface((350*percent, 30))
+            surface.fill('white')
+
+            self.screen.blit(surface, (20, 750))
+            pg.display.flip()
+
+            time.sleep(0.1)
     
         for filename in os.listdir(directory + '/sounds'):
 
             filepath = os.path.join(directory + '/sounds', filename)
             song = pg.mixer.Sound(filepath)
             self.songs[filename] = song
+
+            progress += 1
+            percent = float(progress / dir_length)
+            surface = pg.Surface((350*percent, 30))
+            surface.fill('white')
+
+            self.screen.blit(surface, (20, 750))
+            pg.display.flip()
+
+            time.sleep(0.1)
 
     def eventHandler(self, text): ## probably a little jank to have text as an argument here but i don't think this needs to be super clean
 
