@@ -23,11 +23,12 @@ class Board:
 
     ## CLASS VARIABLES ##
     board = np.empty([8,6],dtype=str) ## going to be letters
+    
     letter_locs = np.empty([8,6],dtype=tuple)
     all_words = []
     ## CLASS VARIABLES ## 
 
-    def __init__(self, screen, GAME_FONT):
+    def __init__(self, screen, GAME_FONT, BOARD_FONT):
         
         ## asset loading
         fpath = "./dat/text/strands1.txt" 
@@ -46,7 +47,7 @@ class Board:
                 colCoord = 20 + (j*60)
                 ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
                 pg.draw.rect(screen, "red", pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
-                self.letter_locs[i][j] = (colCoord, rowCoord)
+                self.letter_locs[i][j] = (colCoord+20, rowCoord+15)
                 
                 
     def fillBoard(self):
@@ -65,29 +66,28 @@ class Board:
                     x_loc = (Strands.screen.get_width() / len(game_title)) + 30 ## this is pretty jank lol & doesn't scale that well but it's fine for now
 
                     Strands.screen.blit(title_text, (x_loc,50,0,0))
-
-                elif word == spangram:
                     continue
                 
                 for letter in word:
 
-                    
-                    text_surface = Strands.GAME_FONT.render(letter, True, (0, 0, 0))
-                    next_position = self.randomLocation(curr_position)
+                    text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
+                    next_position = self.openGridSquares(curr_position)[0]
 
                     while not self.areEmptyConnected(next_position, start):
-                 
-                        next_position = self.randomLocation(curr_position)
+                        
+                        open_spots = self.openGridSquares(curr_position)
+                        next_position = open_spots[np.random.choice(len(open_spots))]
+                        
                     
                     curr_position = next_position
                     ## the below line throws an error for now due to areEmptyConnected() not being implemented yet
                     self.board[curr_position] = letter
 
-                    print(next_position)
+                    print(letter)
                     Strands.screen.blit(text_surface, self.letter_locs[next_position])
                     
 
-    def randomLocation(self, curr_position): ## picks a random letter position out of the 8 surrounding currLetterPos
+    def openGridSquares(self, curr_position): ## picks a random letter position out of the 8 surrounding currLetterPos
         open_square_loc = []
 
         try:
@@ -101,9 +101,11 @@ class Board:
                     if self.board[curr_position[0]-i][curr_position[1]-j] == '':
                         open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
         
-            index = np.random.choice(np.arange(len(open_square_loc))) ## np.random glitches if I try to simply pick a random tuple from the list
-            return open_square_loc[index]
-
+             ## np.random glitches if I try to simply pick a random tuple from the list
+            if len(open_square_loc) != 0:
+                return open_square_loc
+            else:
+                return [(0,0)]
         except:
 
             return [(0,0)]
@@ -112,25 +114,30 @@ class Board:
         
         ## identify if once a letter is placed, all empty spots are connected
 
-        
         self.board[letter_loc] = '_'
-        position = self.randomLocation(letter_loc)
-        path = [position]
-        checking = True
+        positions = self.openGridSquares(letter_loc)
+        path = []
 
-        while checking:
+
+        for pos in positions:
             
             elapsed = time.time() - start
-            if elapsed >= 3:
-                checking = False
+            
+            if elapsed >= 5:
+                self.board[letter_loc] = ''
+                return True ## exit in case of issue
 
-            next_pos = self.randomLocation(position)
-            if next_pos is not None and next_pos not in path:
-                position = next_pos
-                path.append(position)
+            next_pos = self.openGridSquares(pos)
+            common = set(next_pos) & set(path) ## checks to see if any values are in common between path & positions -- important to not backtrack
+            
+            if len(next_pos) > 0 and pos not in common:
+                positions = next_pos
+                path.append(pos)
+
             else:
                 if '' not in self.board:
                     return True
+                self.board[letter_loc] = ''
                 return False
 
 
@@ -141,9 +148,10 @@ class Strands:
     pg.font.init()
     ## CLASS VARIABLES
     GAME_FONT = pg.font.SysFont('arial', 50, bold=True)
+    BOARD_FONT = pg.font.SysFont('arial', 25)
     pictures = {}
     songs = {}
-    title_screen_song = 'Acolyte.mp3'
+    title_screen_song = 'Honey.mp3'
     music_volume = 0.25
     channel = pg.mixer.Channel(0)
     screen = pg.display.set_mode((400, 867))
@@ -240,7 +248,7 @@ class Strands:
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
             self.channel.fadeout(4000)
 
-            board = Board(self.screen, self.GAME_FONT)
+            board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
             board.fillBoard()
 
             return board
@@ -263,10 +271,13 @@ class Strands:
 
             progress += 1
             percent = float(progress / dir_length) 
-            surface = pg.Surface((350*percent, 30))
-            surface.fill('white')
+            loading_bar = pg.Surface((350*percent, 30))
+            loading_outline = pg.Surface((360*percent, 40))
+            loading_bar.fill('white')
+            loading_outline.fill('pink')
 
-            self.screen.blit(surface, (20, 750))
+            self.screen.blit(loading_outline, (15, 745))
+            self.screen.blit(loading_bar, (20, 750))
             pg.display.flip()
 
             time.sleep(0.1)
@@ -279,10 +290,13 @@ class Strands:
 
             progress += 1
             percent = float(progress / dir_length)
-            surface = pg.Surface((350*percent, 30))
-            surface.fill('white')
+            loading_bar = pg.Surface((350*percent, 30))
+            loading_outline = pg.Surface((360*percent, 40))
+            loading_bar.fill('white')
+            loading_outline.fill('pink')
 
-            self.screen.blit(surface, (20, 750))
+            self.screen.blit(loading_outline, (15, 745))
+            self.screen.blit(loading_bar, (20, 750))
             pg.display.flip()
 
             time.sleep(0.1)
@@ -332,8 +346,6 @@ class Strands:
     ## core loop
     def run(self):
         
-        
-
         self.loadAssets()
         text = self.setup() ## setup returns a dictionary w/ title text & their respective locations. 
                             ## helpful for checking if buttons have been pressed; see eventHandler()
