@@ -23,7 +23,7 @@ class Board:
 
     ## CLASS VARIABLES ##
     board = np.empty([8,6],dtype=str) ## going to be letters
-    
+    color = "red"
     letter_locs = np.empty([8,6],dtype=tuple)
     all_words = []
     ## CLASS VARIABLES ## 
@@ -46,20 +46,48 @@ class Board:
             for j in range(6):
                 colCoord = 20 + (j*60)
                 ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
-                pg.draw.rect(screen, "red", pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                pg.draw.rect(screen, self.color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                 self.letter_locs[i][j] = (colCoord+20, rowCoord+15)
-                
+    
+    def colorBoard(self,screen,squares=[]):
+
+        if squares == []:
+
+            for i in range(8):
+                ## Changes which row the squares are drawn on.
+                rowCoord = 200 + (i*60)
+            
+                for j in range(6):
+                    colCoord = 20 + (j*60)
+                    ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
+                    pg.draw.rect(screen, self.color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+
+        else:
+            for i in squares:
+                try:
+                    location = self.letter_locs[i]
+                    letter = self.board[i]
+                    text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
+                    pg.draw.rect(screen, self.color, pg.Rect(location[0]-20, location[1]-15, 50, 50), border_radius=15)
+                    Strands.screen.blit(text_surface, location)
+                except:
+                    print(i)
                 
     def fillBoard(self):
         ## to start
         curr_position = (np.random.randint(0,9), np.random.randint(0,7)) ## board pos
         ## Algorithm for placing letters
-
+        word_locs = {}
         start = time.time()
         for words in self.all_words:
             game_title = words[0]
             spangram = words[1]
             for word in words:
+                word_locs[word] = []
+                
+                
+                #self.colorBoard(Strands.screen)
+
                 if word == game_title:
 
                     title_text = Strands.GAME_FONT.render(game_title, True, (0,0,0))
@@ -72,22 +100,26 @@ class Board:
 
                     text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
                     next_position = self.openGridSquares(curr_position)[0]
-
-                    while not self.areEmptyConnected(next_position, start):
+                    word_locs[word].append(next_position)
+                   
+                    while not self.areEmptyConnected(next_position, start) and not self.checkBoard():
                         
                         open_spots = self.openGridSquares(curr_position)
+                        if open_spots == [(0,0)]:
+                            open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
                         next_position = open_spots[np.random.choice(len(open_spots))]
                         
-                    
                     curr_position = next_position
                     ## the below line throws an error for now due to areEmptyConnected() not being implemented yet
                     self.board[curr_position] = letter
-
-                    print(letter)
-                    Strands.screen.blit(text_surface, self.letter_locs[next_position])
                     
+                    Strands.screen.blit(text_surface, self.letter_locs[curr_position])
+                
+                #time.sleep(0.12)
+                #self.color = np.random.choice(['blue', 'red', 'yellow', 'orange', 'green', 'purple', 'brown'], replace=False)
+                #self.colorBoard(Strands.screen,squares=word_locs[word])
 
-    def openGridSquares(self, curr_position): ## picks a random letter position out of the 8 surrounding currLetterPos
+    def openGridSquares(self, curr_position): ## returns list of open grid squares surrounding the given curr_position
         open_square_loc = []
 
         try:
@@ -100,11 +132,11 @@ class Board:
                         continue
                     if self.board[curr_position[0]-i][curr_position[1]-j] == '':
                         open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
-        
-             ## np.random glitches if I try to simply pick a random tuple from the list
+            
             if len(open_square_loc) != 0:
                 return open_square_loc
             else:
+
                 return [(0,0)]
         except:
 
@@ -114,15 +146,14 @@ class Board:
         
         ## identify if once a letter is placed, all empty spots are connected
 
-        self.board[letter_loc] = '_'
+        #self.board[letter_loc] = ''
         positions = self.openGridSquares(letter_loc)
-        path = []
-
+        path = [letter_loc]
 
         for pos in positions:
             
             elapsed = time.time() - start
-            
+
             if elapsed >= 5:
                 self.board[letter_loc] = ''
                 return True ## exit in case of issue
@@ -131,14 +162,25 @@ class Board:
             common = set(next_pos) & set(path) ## checks to see if any values are in common between path & positions -- important to not backtrack
             
             if len(next_pos) > 0 and pos not in common:
-                positions = next_pos
+                positions = next_pos ## pseudo recursion, essentially just finds the first path that allows all white squares to be connected
                 path.append(pos)
 
             else:
-                if '' not in self.board:
+                if self.checkBoard()[0]:
                     return True
                 self.board[letter_loc] = ''
                 return False
+
+    def checkBoard(self):
+
+        open_squares = []
+        for i in range(len(self.board[0])):
+            for j in range(len(self.board[1])):
+                if self.board[i][j] == '':
+                    open_squares.append((i,j))
+        if len(open_squares) == 0:
+            return True, [(0,0)] ## if the board is full, return True & send 0,0
+        return False, open_squares ## else show me the open squares!!!!    
 
 
 class Strands:
@@ -152,7 +194,7 @@ class Strands:
     pictures = {}
     songs = {}
     title_screen_song = 'Honey.mp3'
-    music_volume = 0.25
+    music_volume = 0
     channel = pg.mixer.Channel(0)
     screen = pg.display.set_mode((400, 867))
     volume_slider = pgw.slider.Slider(screen, 250, 50, 100, 25, min=0, max=99, initial = music_volume * 100)
@@ -241,8 +283,7 @@ class Strands:
                 self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
                 self.music_volume = self.volume_slider.getValue() / 100
                 self.channel.set_volume(self.music_volume)
-                
-                
+                          
         else:
            
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
@@ -280,7 +321,7 @@ class Strands:
             self.screen.blit(loading_bar, (20, 750))
             pg.display.flip()
 
-            time.sleep(0.1)
+            time.sleep(0.01)
     
         for filename in os.listdir(directory + '/sounds'):
 
@@ -299,7 +340,7 @@ class Strands:
             self.screen.blit(loading_bar, (20, 750))
             pg.display.flip()
 
-            time.sleep(0.1)
+            time.sleep(0.01)
 
     def eventHandler(self, text): ## probably a little jank to have text as an argument here but i don't think this needs to be super clean
 
