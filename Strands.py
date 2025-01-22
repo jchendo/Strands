@@ -59,23 +59,30 @@ class Board:
             
                 for j in range(6):
                     colCoord = 20 + (j*60)
+                    location = self.letter_locs[i][j]
+                    letter = self.board[i][j]
+                    text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
                     ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
                     pg.draw.rect(screen, self.color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                    Strands.screen.blit(text_surface, location)
 
         else:
-            for i in squares:
+
+            for i in range(len(squares)):
+                
+                loc = squares[i]
                 try:
-                    location = self.letter_locs[i]
-                    letter = self.board[i]
+                    location = self.letter_locs[loc]
+                    letter = self.board[loc]
                     text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
                     pg.draw.rect(screen, self.color, pg.Rect(location[0]-20, location[1]-15, 50, 50), border_radius=15)
                     Strands.screen.blit(text_surface, location)
                 except:
-                    print(i)
+                    pass
                 
     def fillBoard(self):
         ## to start
-        curr_position = (np.random.randint(0,9), np.random.randint(0,7)) ## board pos
+        curr_position = (np.random.randint(0,8), np.random.randint(0,6)) ## board pos
         ## Algorithm for placing letters
         word_locs = {}
         start = time.time()
@@ -85,6 +92,8 @@ class Board:
             for word in words:
                 word_locs[word] = []
                 
+                #while self.board[curr_position] != '' and not self.areEmptyConnected(curr_position, start):
+                    #curr_position = (np.random.randint(0,8), np.random.randint(0,6))
                 
                 #self.colorBoard(Strands.screen)
 
@@ -198,6 +207,7 @@ class Strands:
     channel = pg.mixer.Channel(0)
     screen = pg.display.set_mode((400, 867))
     volume_slider = pgw.slider.Slider(screen, 250, 50, 100, 25, min=0, max=99, initial = music_volume * 100)
+    word_path = []
     running = True
     start = False
     settings = False
@@ -289,10 +299,10 @@ class Strands:
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
             self.channel.fadeout(4000)
 
-            board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
-            board.fillBoard()
+            self.board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
+            self.board.fillBoard()
 
-            return board
+            return self.board
        
     def loadAssets(self):
         
@@ -310,6 +320,7 @@ class Strands:
             image = pg.transform.scale(image, (width*sf, height*sf))
             self.pictures[filename] = image
 
+            # progress bar 
             progress += 1
             percent = float(progress / dir_length) 
             loading_bar = pg.Surface((350*percent, 30))
@@ -378,9 +389,28 @@ class Strands:
                         self.setup()
                         # settings
 
-                else:
-                    ## game board interaction handling
-                    pass
+                else: ## game board interaction handling
+
+                    for i in range(8):
+                        loc_list = self.board.letter_locs[i]
+                        for j in range(6):
+                            loc = self.board.letter_locs[i][j]
+
+                            if ((mouse_pos[0] -  loc[0] > -25 and mouse_pos[0] - loc[0] <= 25) 
+                            and (mouse_pos[1] -  loc[1] < 35 and mouse_pos[1] - loc[1] >= -15)):
+                               
+                                if self.board.board[i][j] in self.word_path:
+                                    self.word_path.remove(self.board.board[i][j])
+                                    self.word_path.clear()
+                                    self.board.color = 'red'
+                                    self.board.colorBoard(self.screen)
+                                else:
+                                    self.word_path.append(self.board.board[i][j])
+                                    self.board.color = 'darkred'
+
+                                print(self.word_path)
+                                self.board.colorBoard(self.screen, squares = [(i,j)])
+                                
 
             return event
                            
