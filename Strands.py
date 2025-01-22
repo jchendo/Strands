@@ -31,11 +31,6 @@ class Board:
     def __init__(self, screen, GAME_FONT, BOARD_FONT):
         
         ## asset loading
-        fpath = "./dat/text/strands1.txt" 
-        text = open(fpath)
-        for line in text.readlines():
-            words = line.split(", ")
-            self.all_words.append(words)
                    
         ## 8 rows x 6 columns (48 total letters)
         
@@ -80,49 +75,49 @@ class Board:
                 except:
                     pass
                 
-    def fillBoard(self):
+    def fillBoard(self, words):
         ## to start
         curr_position = (np.random.randint(0,8), np.random.randint(0,6)) ## board pos
         ## Algorithm for placing letters
         word_locs = {}
         start = time.time()
-        for words in self.all_words:
-            game_title = words[0]
-            spangram = words[1]
-            for word in words:
-                word_locs[word] = []
+        game_title = words[0]
+        spangram = words[1]
+        
+        for word in words:
+            word_locs[word] = []
                 
-                #while self.board[curr_position] != '' and not self.areEmptyConnected(curr_position, start):
-                    #curr_position = (np.random.randint(0,8), np.random.randint(0,6))
+            #while self.board[curr_position] != '' and not self.areEmptyConnected(curr_position, start):
+                #curr_position = (np.random.randint(0,8), np.random.randint(0,6))
                 
-                #self.colorBoard(Strands.screen)
+            #self.colorBoard(Strands.screen)
 
-                if word == game_title:
+            if word == game_title:
 
-                    title_text = Strands.GAME_FONT.render(game_title, True, (0,0,0))
-                    x_loc = (Strands.screen.get_width() / len(game_title)) + 30 ## this is pretty jank lol & doesn't scale that well but it's fine for now
+                title_text = Strands.GAME_FONT.render(game_title, True, (0,0,0))
+                x_loc = (Strands.screen.get_width() / len(game_title)) + 30 ## this is pretty jank lol & doesn't scale that well but it's fine for now
 
-                    Strands.screen.blit(title_text, (x_loc,50,0,0))
-                    continue
+                Strands.screen.blit(title_text, (x_loc,50,0,0))
+                continue
                 
-                for letter in word:
+            for letter in word:
 
-                    text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
-                    next_position = self.openGridSquares(curr_position)[0]
-                    word_locs[word].append(next_position)
+                text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
+                next_position = self.openGridSquares(curr_position)[0]
+                word_locs[word].append(next_position)
                    
-                    while not self.areEmptyConnected(next_position, start) and not self.checkBoard():
+                while not self.areEmptyConnected(next_position, start) and not self.checkBoard():
                         
-                        open_spots = self.openGridSquares(curr_position)
-                        if open_spots == [(0,0)]:
-                            open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
-                        next_position = open_spots[np.random.choice(len(open_spots))]
+                    open_spots = self.openGridSquares(curr_position)
+                    if open_spots == [(0,0)]:
+                        open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
+                    next_position = open_spots[np.random.choice(len(open_spots))]
                         
-                    curr_position = next_position
-                    ## the below line throws an error for now due to areEmptyConnected() not being implemented yet
-                    self.board[curr_position] = letter
+                curr_position = next_position
+                ## the below line throws an error for now due to areEmptyConnected() not being implemented yet
+                self.board[curr_position] = letter
                     
-                    Strands.screen.blit(text_surface, self.letter_locs[curr_position])
+                Strands.screen.blit(text_surface, self.letter_locs[curr_position])
                 
                 #time.sleep(0.12)
                 #self.color = np.random.choice(['blue', 'red', 'yellow', 'orange', 'green', 'purple', 'brown'], replace=False)
@@ -208,6 +203,7 @@ class Strands:
     screen = pg.display.set_mode((400, 867))
     volume_slider = pgw.slider.Slider(screen, 250, 50, 100, 25, min=0, max=99, initial = music_volume * 100)
     word_path = []
+    all_words = []
     running = True
     start = False
     settings = False
@@ -300,7 +296,8 @@ class Strands:
             self.channel.fadeout(4000)
 
             self.board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
-            self.board.fillBoard()
+            words = np.random.choice(len(self.all_words))
+            self.board.fillBoard(self.all_words[words])
 
             return self.board
        
@@ -309,6 +306,14 @@ class Strands:
         directory = "./dat"
         progress = 0
         dir_length = len(os.listdir(directory + '/pictures')) + len(os.listdir(directory + '/sounds'))
+        
+        fpath = "./dat/text/strands.txt" 
+        text = open(fpath)
+        
+        
+        for line in text.readlines():
+            words = line.split(", ")
+            self.all_words.append(words)
 
         for filename in os.listdir(directory + '/pictures'): ## images
             
