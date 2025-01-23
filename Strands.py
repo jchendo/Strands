@@ -44,7 +44,7 @@ class Board:
                 pg.draw.rect(screen, self.color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                 self.letter_locs[i][j] = (colCoord+20, rowCoord+15)
     
-    def colorBoard(self,screen,squares=[]):
+    def colorBoard(self,screen,squares=[],color='red'):
 
         if squares == []:
 
@@ -58,7 +58,7 @@ class Board:
                     letter = self.board[i][j]
                     text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
                     ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
-                    pg.draw.rect(screen, self.color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                    pg.draw.rect(screen, color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                     Strands.screen.blit(text_surface, location)
 
         else:
@@ -85,12 +85,6 @@ class Board:
         spangram = words[1]
         
         for word in words:
-            word_locs[word] = []
-                
-            #while self.board[curr_position] != '' and not self.areEmptyConnected(curr_position, start):
-                #curr_position = (np.random.randint(0,8), np.random.randint(0,6))
-                
-            #self.colorBoard(Strands.screen)
 
             if word == game_title:
 
@@ -99,7 +93,9 @@ class Board:
 
                 Strands.screen.blit(title_text, (x_loc,50,0,0))
                 continue
-                
+            else:
+                word_locs[word] = []
+
             for letter in word:
 
                 text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
@@ -108,7 +104,7 @@ class Board:
                    
                 while not self.areEmptyConnected(next_position, start) and not self.checkBoard():
                         
-                    open_spots = self.openGridSquares(curr_position)
+                    open_spots = self.openGridSquares(curr_position, open=True)
                     if open_spots == [(0,0)]:
                         open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
                     next_position = open_spots[np.random.choice(len(open_spots))]
@@ -119,32 +115,45 @@ class Board:
                     
                 Strands.screen.blit(text_surface, self.letter_locs[curr_position])
                 
+        return word_locs
                 #time.sleep(0.12)
                 #self.color = np.random.choice(['blue', 'red', 'yellow', 'orange', 'green', 'purple', 'brown'], replace=False)
                 #self.colorBoard(Strands.screen,squares=word_locs[word])
 
-    def openGridSquares(self, curr_position): ## returns list of open grid squares surrounding the given curr_position
+    def openGridSquares(self, curr_position, open=True): ## returns list of open grid squares surrounding the given curr_position
         open_square_loc = []
 
-        try:
+        if open:
 
-            for i in range(-1,2): ## has to have values -1, 0, 1 in order to get the rows above, equal, and below currLetterPos
-                if (curr_position[0] - i) >= 8 or (curr_position[0] - i) < 0:
-                    continue
-                for j in range(-1,2): ## same logic for columns
-                    if (curr_position[1] - j) >= 6 or (curr_position[1] - j) < 0:
+            try:
+
+                for i in range(-1,2): ## has to have values -1, 0, 1 in order to get the rows above, equal, and below currLetterPos
+                    if (curr_position[0] - i) >= 8 or (curr_position[0] - i) < 0:
                         continue
-                    if self.board[curr_position[0]-i][curr_position[1]-j] == '':
-                        open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
+                    for j in range(-1,2): ## same logic for columns
+                        if (curr_position[1] - j) >= 6 or (curr_position[1] - j) < 0:
+                            continue
+                        if self.board[curr_position[0]-i][curr_position[1]-j] == '':
+                            open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
             
-            if len(open_square_loc) != 0:
-                return open_square_loc
-            else:
+                if len(open_square_loc) != 0:
+                    return open_square_loc
+                else:
+
+                    return [(0,0)]
+            except:
 
                 return [(0,0)]
-        except:
 
-            return [(0,0)]
+        else: ## just returns all adjacent squares 
+            for i in range(-1,2): ## has to have values -1, 0, 1 in order to get the rows above, equal, and below currLetterPos
+                    if (curr_position[0] - i) >= 8 or (curr_position[0] - i) < 0:
+                        continue
+                    for j in range(-1,2): ## same logic for columns
+                        if (curr_position[1] - j) >= 6 or (curr_position[1] - j) < 0:
+                            continue
+                        open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
+            return open_square_loc
 
     def areEmptyConnected(self, letter_loc,start): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
         
@@ -203,6 +212,7 @@ class Strands:
     screen = pg.display.set_mode((400, 867))
     volume_slider = pgw.slider.Slider(screen, 250, 50, 100, 25, min=0, max=99, initial = music_volume * 100)
     word_path = []
+    word_locs = {}
     all_words = []
     running = True
     start = False
@@ -216,6 +226,11 @@ class Strands:
             self.setup()
             if self.settings: ## this whole thing is a little jank & so laggy but it works for now
                 pgw.update(event)
+
+        else:
+            if any(self.word_path == value for value in self.word_locs.values()):
+                #print(f'Congrats, you found the word {value}.')
+                self.board.colorBoard(self.screen, squares=self.word_path, color='yellow')
         pg.display.update()
 
     def spawnHearts(self):
@@ -297,7 +312,7 @@ class Strands:
 
             self.board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
             words = np.random.choice(len(self.all_words))
-            self.board.fillBoard(self.all_words[words])
+            self.word_locs = self.board.fillBoard(self.all_words[words])
 
             return self.board
        
@@ -403,18 +418,22 @@ class Strands:
 
                             if ((mouse_pos[0] -  loc[0] > -25 and mouse_pos[0] - loc[0] <= 25) 
                             and (mouse_pos[1] -  loc[1] < 35 and mouse_pos[1] - loc[1] >= -15)):
-                               
-                                if self.board.board[i][j] in self.word_path:
-                                    self.word_path.remove(self.board.board[i][j])
+                                
+                                if (i,j) in self.word_path:
+                                    self.word_path.remove((i,j))
                                     self.word_path.clear()
                                     self.board.color = 'red'
                                     self.board.colorBoard(self.screen)
-                                else:
-                                    self.word_path.append(self.board.board[i][j])
+                                elif len(self.word_path) == 0:
+                                    self.word_path.append((i,j))
                                     self.board.color = 'darkred'
-
+                                elif (i,j) in self.board.openGridSquares(self.word_path[len(self.word_path)-1], open=False):
+                                    self.word_path.append((i,j))
+                                    self.board.color = 'darkred'
+                                else:
+                                    self.board.color = 'red'
                                 print(self.word_path)
-                                self.board.colorBoard(self.screen, squares = [(i,j)])
+                                self.board.colorBoard(self.screen, squares = [(i,j)], color=self.board.color)
                                 
 
             return event
