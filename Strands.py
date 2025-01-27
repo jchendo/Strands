@@ -1,4 +1,5 @@
 import os
+import random
 import time
 import pygame as pg
 import numpy as np
@@ -44,9 +45,9 @@ class Board:
                 pg.draw.rect(screen, self.color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                 self.letter_locs[i][j] = (colCoord+20, rowCoord+15)
     
-    def colorBoard(self,screen,squares=[],color='red'):
+    def colorBoard(self,screen,squares=[],color='red', found_words=[]):
 
-        if squares == []:
+        if squares == [] and color=='red':
 
             for i in range(8):
                 ## Changes which row the squares are drawn on.
@@ -57,9 +58,15 @@ class Board:
                     location = self.letter_locs[i][j]
                     letter = self.board[i][j]
                     text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
-                    ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
-                    pg.draw.rect(screen, color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
-                    Strands.screen.blit(text_surface, location)
+                    
+                    if (i,j) in found_words:
+                        pg.draw.rect(screen, 'yellow', pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                        Strands.screen.blit(text_surface, location)
+                    else:
+                        
+                        ## Draw rectangles at an interval of 60 pixels, starting at 20 (to allow whitespace)
+                        pg.draw.rect(screen, color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                        Strands.screen.blit(text_surface, location)
 
         else:
 
@@ -70,7 +77,7 @@ class Board:
                     location = self.letter_locs[loc]
                     letter = self.board[loc]
                     text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
-                    pg.draw.rect(screen, self.color, pg.Rect(location[0]-20, location[1]-15, 50, 50), border_radius=15)
+                    pg.draw.rect(screen, color, pg.Rect(location[0]-20, location[1]-15, 50, 50), border_radius=15)
                     Strands.screen.blit(text_surface, location)
                 except:
                     pass
@@ -83,6 +90,7 @@ class Board:
         start = time.time()
         game_title = words[0]
         spangram = words[1]
+        words[len(words)-1] = words[len(words)-1].rstrip() ## white space at the end of .txt lines
         
         for word in words:
 
@@ -100,21 +108,29 @@ class Board:
 
                 text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
                 next_position = self.openGridSquares(curr_position)[0]
-                word_locs[word].append(next_position)
+                
                    
-                while not self.areEmptyConnected(next_position, start) and not self.checkBoard():
+                while not self.areEmptyConnected(next_position, start) and not self.checkBoard()[0]:
                         
                     open_spots = self.openGridSquares(curr_position, open=True)
                     if open_spots == [(0,0)]:
                         open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
-                    next_position = open_spots[np.random.choice(len(open_spots))]
+              
+                    index = random.randrange(len(open_spots))
+                    next_position = open_spots[index]
                         
                 curr_position = next_position
-                ## the below line throws an error for now due to areEmptyConnected() not being implemented yet
-                self.board[curr_position] = letter
+              
+                if len(word_locs[word]) < len(word):
+                    self.board[curr_position] = letter
+                    word_locs[word].append(curr_position)
+                else:
+                    
+                    continue
                     
                 Strands.screen.blit(text_surface, self.letter_locs[curr_position])
-                
+        print(word_locs) 
+        
         return word_locs
                 #time.sleep(0.12)
                 #self.color = np.random.choice(['blue', 'red', 'yellow', 'orange', 'green', 'purple', 'brown'], replace=False)
@@ -167,8 +183,8 @@ class Board:
             
             elapsed = time.time() - start
 
-            if elapsed >= 5:
-                self.board[letter_loc] = ''
+            if elapsed >= 1:
+                #self.board[letter_loc] = ''
                 return True ## exit in case of issue
 
             next_pos = self.openGridSquares(pos)
@@ -214,8 +230,9 @@ class Strands:
     word_path = []
     word_locs = {}
     all_words = []
+    found_words = []
     running = True
-    start = False
+    start = True
     settings = False
     ## CLASS VARIABLES
 
@@ -228,9 +245,20 @@ class Strands:
                 pgw.update(event)
 
         else:
-            if any(self.word_path == value for value in self.word_locs.values()):
-                #print(f'Congrats, you found the word {value}.')
-                self.board.colorBoard(self.screen, squares=self.word_path, color='yellow')
+            
+            if len(self.found_words) == 48:
+                start = False
+                print('You win!')
+
+            if self.word_path in self.word_locs.values():
+                    
+                    #print(f'Congrats, you found the word {value}.')
+                    self.board.colorBoard(self.screen, squares=self.word_path, color='yellow')
+                    self.found_words.extend(self.word_path)
+                    self.word_path = []
+                    #time.sleep(10)
+            else:
+                    self.board.colorBoard(self.screen, squares=self.word_path, color=self.board.color, found_words=self.found_words)
         pg.display.update()
 
     def spawnHearts(self):
@@ -311,8 +339,8 @@ class Strands:
             self.channel.fadeout(4000)
 
             self.board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
-            words = np.random.choice(len(self.all_words))
-            self.word_locs = self.board.fillBoard(self.all_words[words])
+            words = self.all_words[2]
+            self.word_locs = self.board.fillBoard(words)
 
             return self.board
        
@@ -419,22 +447,25 @@ class Strands:
                             if ((mouse_pos[0] -  loc[0] > -25 and mouse_pos[0] - loc[0] <= 25) 
                             and (mouse_pos[1] -  loc[1] < 35 and mouse_pos[1] - loc[1] >= -15)):
                                 
-                                if (i,j) in self.word_path:
-                                    self.word_path.remove((i,j))
-                                    self.word_path.clear()
-                                    self.board.color = 'red'
-                                    self.board.colorBoard(self.screen)
-                                elif len(self.word_path) == 0:
-                                    self.word_path.append((i,j))
-                                    self.board.color = 'darkred'
-                                elif (i,j) in self.board.openGridSquares(self.word_path[len(self.word_path)-1], open=False):
-                                    self.word_path.append((i,j))
-                                    self.board.color = 'darkred'
+                                if (i,j) not in self.found_words:
+
+                                    if (i,j) in self.word_path:
+                                        self.word_path.remove((i,j))
+                                        self.word_path.clear()
+                                        self.board.color = 'red'
+                                        self.board.colorBoard(self.screen)
+                                    elif len(self.word_path) == 0:
+                                        self.word_path.append((i,j))
+                                        self.board.color = 'darkred'
+                                    elif (i,j) in self.board.openGridSquares(self.word_path[len(self.word_path)-1], open=False):
+                                        self.word_path.append((i,j))
+                                        self.board.color = 'darkred'
+                                    else:
+                                        self.board.color = 'red'
                                 else:
-                                    self.board.color = 'red'
-                                print(self.word_path)
-                                self.board.colorBoard(self.screen, squares = [(i,j)], color=self.board.color)
+                                    continue
                                 
+                            
 
             return event
                            
