@@ -1,3 +1,4 @@
+from email.policy import default
 import os
 import random
 import time
@@ -107,16 +108,21 @@ class Board:
             for letter in word:
 
                 text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
-                next_position = self.openGridSquares(curr_position)[0]
-                
+                possible_positions = self.openGridSquares(curr_position)
+                try:
+                    next_position = possible_positions[np.random.randint(0, len(possible_positions)-1)]
+                except:
+                    print(possible_positions)
+                    next_position = possible_positions[0]
                    
                 while not self.areEmptyConnected(next_position, start) and not self.checkBoard()[0]:
                         
                     open_spots = self.openGridSquares(curr_position, open=True)
-                    if open_spots == [(0,0)]:
-                        open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
+                    
+                    #if open_spots == [(0,0)]:
+                     #   open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
               
-                    index = random.randrange(len(open_spots))
+                    index = np.random.randint(0,len(open_spots))
                     next_position = open_spots[index]
                         
                 curr_position = next_position
@@ -125,7 +131,6 @@ class Board:
                     self.board[curr_position] = letter
                     word_locs[word].append(curr_position)
                 else:
-                    
                     continue
                     
                 Strands.screen.blit(text_surface, self.letter_locs[curr_position])
@@ -149,7 +154,7 @@ class Board:
                     for j in range(-1,2): ## same logic for columns
                         if (curr_position[1] - j) >= 6 or (curr_position[1] - j) < 0:
                             continue
-                        if self.board[curr_position[0]-i][curr_position[1]-j] == '':
+                        if self.board[(curr_position[0]-i,curr_position[1]-j)] == '':
                             open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
             
                 if len(open_square_loc) != 0:
@@ -176,7 +181,8 @@ class Board:
         ## identify if once a letter is placed, all empty spots are connected
 
         #self.board[letter_loc] = ''
-        positions = self.openGridSquares(letter_loc)
+        default_positions = self.openGridSquares(letter_loc)
+        positions = default_positions
         path = [letter_loc]
 
         for pos in positions:
@@ -188,17 +194,30 @@ class Board:
                 return True ## exit in case of issue
 
             next_pos = self.openGridSquares(pos)
+            for i in next_pos:
+                if self.openGridSquares(next_pos) != [(0,0)]:
+                    continue
+                else:
+                    print("Lock in.")
+                    positions = default_positions
+                    return False
+                    #positions = default_positions
             common = set(next_pos) & set(path) ## checks to see if any values are in common between path & positions -- important to not backtrack
             
-            if len(next_pos) > 0 and pos not in common:
+            if next_pos != [(0,0)] and pos not in common:
                 positions = next_pos ## pseudo recursion, essentially just finds the first path that allows all white squares to be connected
+                random.shuffle(positions)
                 path.append(pos)
 
             else:
                 if self.checkBoard()[0]:
                     return True
-                self.board[letter_loc] = ''
-                return False
+                positions = default_positions
+                random.shuffle(positions)
+                path = [letter_loc]
+                print("Help!")
+        
+        return False
 
     def checkBoard(self):
 
@@ -339,7 +358,7 @@ class Strands:
             self.channel.fadeout(4000)
 
             self.board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
-            words = self.all_words[2]
+            words = self.all_words[3]
             self.word_locs = self.board.fillBoard(words)
 
             return self.board
