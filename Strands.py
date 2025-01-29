@@ -86,12 +86,15 @@ class Board:
     def fillBoard(self, words):
         ## to start
         curr_position = (np.random.randint(0,8), np.random.randint(0,6)) ## board pos
+        self.board = np.empty((8,6), dtype = 'str')
+        
         ## Algorithm for placing letters
         word_locs = {}
         start = time.time()
         game_title = words[0]
         spangram = words[1]
         words[len(words)-1] = words[len(words)-1].rstrip() ## white space at the end of .txt lines
+        #self.board[curr_position] = words[1][0]
         
         for word in words:
 
@@ -106,40 +109,22 @@ class Board:
                 word_locs[word] = []
 
             for letter in word:
-
                 text_surface =  Strands.BOARD_FONT.render(letter, True, (0, 0, 0))
-                possible_positions = self.openGridSquares(curr_position)
-                try:
-                    next_position = possible_positions[np.random.randint(0, len(possible_positions)-1)]
-                except:
-                    print(possible_positions)
-                    next_position = possible_positions[0]
-                   
-                while not self.areEmptyConnected(next_position, start) and not self.checkBoard()[0]:
-                        
-                    open_spots = self.openGridSquares(curr_position, open=True)
+                open_spots = self.openGridSquares(curr_position, open=True) ## this function runs assuming curr_position is a placed letter
+
+                ## rewrite this loop (for pos in open_spots, if self.areEmptyConnected... etc)
+                
+                for pos in open_spots:
+                    if self.areEmptyConnected(pos, start):
+                        curr_position = pos
+                        self.board[curr_position] = letter
+                        break
                     
-                    #if open_spots == [(0,0)]:
-                     #   open_spots = self.checkBoard()[1] ## will hopefully prevent islands by identifying open areas & filling them
-              
-                    index = np.random.randint(0,len(open_spots))
-                    next_position = open_spots[index]
-                        
-                curr_position = next_position
-              
-                if len(word_locs[word]) < len(word):
-                    self.board[curr_position] = letter
-                    word_locs[word].append(curr_position)
-                else:
-                    continue
-                    
+                word_locs[word].append(curr_position)
                 Strands.screen.blit(text_surface, self.letter_locs[curr_position])
         print(word_locs) 
         
         return word_locs
-                #time.sleep(0.12)
-                #self.color = np.random.choice(['blue', 'red', 'yellow', 'orange', 'green', 'purple', 'brown'], replace=False)
-                #self.colorBoard(Strands.screen,squares=word_locs[word])
 
     def openGridSquares(self, curr_position, open=True): ## returns list of open grid squares surrounding the given curr_position
         open_square_loc = []
@@ -176,54 +161,45 @@ class Board:
                         open_square_loc.append((curr_position[0]-i, curr_position[1]-j))
             return open_square_loc
 
-    def areEmptyConnected(self, letter_loc,start): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
+    def areEmptyConnected(self, letter_loc, start): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
+        visited = np.zeros((8,6))
+        self.board[letter_loc] = ''
+        visited[letter_loc] = 1
+        adjacents = self.openGridSquares(letter_loc)
+        #print(f'Adjacents: {adjacents}')
+
+        filled_visited = self.boardFloodSearch(adjacents, visited)
+        print(filled_visited)
         
-        ## identify if once a letter is placed, all empty spots are connected
-
-        #self.board[letter_loc] = ''
-        default_positions = self.openGridSquares(letter_loc)
-        positions = default_positions
-        path = [letter_loc]
-
-        for pos in positions:
-            
-            elapsed = time.time() - start
-
-            if elapsed >= 1:
-                #self.board[letter_loc] = ''
-                return True ## exit in case of issue
-
-            next_pos = self.openGridSquares(pos)
-            for i in next_pos:
-                if self.openGridSquares(next_pos) != [(0,0)]:
+        if time.time() - start >= 3:
+            return True
+        
+        for x in range(8):
+            for y in range(6):
+                print(f'Board: {self.board[x][y]}\nPosition: {(x,y)}\nVisited: {filled_visited[x][y]}\n')
+                if self.board[x][y] == '' and filled_visited[x][y] == 0:
+                    self.board[letter_loc] = ''
+                    return False
+        self.board[letter_loc] = ''
+        return True
+        
+    def boardFloodSearch(self, adjacents, visited):
+        if adjacents != [(0,0)]:
+            for square in adjacents:
+                if visited[square] == 1:
                     continue
                 else:
-                    print("Lock in.")
-                    positions = default_positions
-                    return False
-                    #positions = default_positions
-            common = set(next_pos) & set(path) ## checks to see if any values are in common between path & positions -- important to not backtrack
-            
-            if next_pos != [(0,0)] and pos not in common:
-                positions = next_pos ## pseudo recursion, essentially just finds the first path that allows all white squares to be connected
-                random.shuffle(positions)
-                path.append(pos)
-
-            else:
-                if self.checkBoard()[0]:
-                    return True
-                positions = default_positions
-                random.shuffle(positions)
-                path = [letter_loc]
-                print("Help!")
+                    visited[square] = 1
+                    new_adjacents = self.openGridSquares(square)
+                    self.boardFloodSearch(new_adjacents, visited)
         
-        return False
+        return visited
 
     def checkBoard(self):
 
         open_squares = []
-        for i in range(len(self.board[0])):
-            for j in range(len(self.board[1])):
+        for i in range(8):
+            for j in range(6):
                 if self.board[i][j] == '':
                     open_squares.append((i,j))
         if len(open_squares) == 0:
