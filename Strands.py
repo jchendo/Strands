@@ -1,4 +1,3 @@
-from email.policy import default
 import os
 import random
 import time
@@ -86,7 +85,7 @@ class Board:
     def fillBoard(self, words):
         ## to start
         curr_position = (np.random.randint(0,8), np.random.randint(0,6)) ## board pos
-        self.board = np.empty((8,6), dtype = 'str')
+        self.board = np.empty((8,6), dtype='str')
         
         ## Algorithm for placing letters
         word_locs = {}
@@ -146,10 +145,10 @@ class Board:
                     return open_square_loc
                 else:
 
-                    return [(0,0)]
+                    return [(-1,-1)]
             except:
 
-                return [(0,0)]
+                return [(-1,-1)]
 
         else: ## just returns all adjacent squares 
             for i in range(-1,2): ## has to have values -1, 0, 1 in order to get the rows above, equal, and below currLetterPos
@@ -163,7 +162,7 @@ class Board:
 
     def areEmptyConnected(self, letter_loc, start): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
         visited = np.zeros((8,6))
-        self.board[letter_loc] = ''
+        #self.board[letter_loc] = ''
         visited[letter_loc] = 1
         adjacents = self.openGridSquares(letter_loc)
         #print(f'Adjacents: {adjacents}')
@@ -178,13 +177,13 @@ class Board:
             for y in range(6):
                 print(f'Board: {self.board[x][y]}\nPosition: {(x,y)}\nVisited: {filled_visited[x][y]}\n')
                 if self.board[x][y] == '' and filled_visited[x][y] == 0:
-                    self.board[letter_loc] = ''
+                    #self.board[letter_loc] = ''
                     return False
-        self.board[letter_loc] = ''
+        #self.board[letter_loc] = ''
         return True
         
     def boardFloodSearch(self, adjacents, visited):
-        if adjacents != [(0,0)]:
+        try:
             for square in adjacents:
                 if visited[square] == 1:
                     continue
@@ -192,7 +191,8 @@ class Board:
                     visited[square] = 1
                     new_adjacents = self.openGridSquares(square)
                     self.boardFloodSearch(new_adjacents, visited)
-        
+        except:
+            return visited
         return visited
 
     def checkBoard(self):
@@ -228,6 +228,8 @@ class Strands:
     found_words = []
     running = True
     start = True
+    level_select = False
+    page_num = 1
     settings = False
     ## CLASS VARIABLES
 
@@ -309,7 +311,7 @@ class Strands:
             self.channel.play(self.songs[self.title_screen_song])
         
         ## title text, if hasn't clicked start, board display otherwise
-        if not self.start:
+        if not self.start and not self.level_select:
 
             if not self.settings: ## different setup for settings menu vs. just reg homescreen
                 self.screen.blit(self.pictures['heart.png'], (40,250,0,0))
@@ -321,14 +323,35 @@ class Strands:
                     self.screen.blit(txt_surface,menu_text[text])
 
                 return menu_text
-
+            
             else:
                 # settings
                 self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
                 self.music_volume = self.volume_slider.getValue() / 100
                 self.channel.set_volume(self.music_volume)
-                          
-        else:
+        elif self.level_select:       
+            text = 'Level Select'
+            ## (60 * page_num) per page (60 * page_num) + 60
+            lower_range = 60 * self.page_num
+            upper_range = lower_range + 60
+            x_coord = 35
+            y_coord = 140
+            title_surface = self.GAME_FONT.render(text, True, 'red')
+            self.screen.blit(title_surface, (80, 50))
+            for i in range(lower_range, upper_range):
+                level_num = i+1
+                level_num_surface = self.BOARD_FONT.render(str(level_num), True, (0,0,0))
+                text_surface = self.BOARD_FONT.render(text, True, (0,0,0))
+                pg.draw.rect(self.screen, 'lightpink', pg.Rect(x_coord, y_coord, 50, 50), border_radius=15)
+                self.screen.blit(level_num_surface, (x_coord+15,y_coord+10))
+                if level_num % 5 == 0:
+                    y_coord += 55
+                    x_coord = 35
+                else:
+                    x_coord += 70
+                
+
+        elif self.start:
            
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
             self.channel.fadeout(4000)
@@ -422,7 +445,7 @@ class Strands:
                     if ((mouse_pos[0] >= start_loc[0] and mouse_pos[0] <= start_loc[0] + 80) 
                     and (mouse_pos[1] >= start_loc[1] and mouse_pos[1] <= start_loc[1]+30)):
 
-                        self.start = True
+                        self.level_select = True
                         self.setup()
 
                     elif ((mouse_pos[0] >= settings_loc[0] and mouse_pos[0] <= settings_loc[0] + 150) 
