@@ -112,7 +112,7 @@ class Board:
                 open_spots = self.openGridSquares(curr_position, open=True) ## this function runs assuming curr_position is a placed letter
 
                 ## rewrite this loop (for pos in open_spots, if self.areEmptyConnected... etc)
-                
+                random.shuffle(open_spots)
                 for pos in open_spots:
                     if self.areEmptyConnected(pos, start):
                         curr_position = pos
@@ -121,8 +121,7 @@ class Board:
                     
                 word_locs[word].append(curr_position)
                 Strands.screen.blit(text_surface, self.letter_locs[curr_position])
-        print(word_locs) 
-        
+      
         return word_locs
 
     def openGridSquares(self, curr_position, open=True): ## returns list of open grid squares surrounding the given curr_position
@@ -162,24 +161,25 @@ class Board:
 
     def areEmptyConnected(self, letter_loc, start): ## boolean return function that says whether or not all empty squares would be connected if a certain letter is placed
         visited = np.zeros((8,6))
-        #self.board[letter_loc] = ''
-        visited[letter_loc] = 1
+        self.board[letter_loc] = '_'
+
         adjacents = self.openGridSquares(letter_loc)
+        ## doing this to start the flood search on one of the adjacents, as opposed to the letter being placed
+        ## using the letter to be placed allows incorrect flood search (two adjacents that are not themselves adjacent are both visited, allows islands)
+        adjacents = self.openGridSquares(adjacents[0])
         #print(f'Adjacents: {adjacents}')
 
         filled_visited = self.boardFloodSearch(adjacents, visited)
-        print(filled_visited)
         
         if time.time() - start >= 3:
             return True
-        
+
         for x in range(8):
             for y in range(6):
-                print(f'Board: {self.board[x][y]}\nPosition: {(x,y)}\nVisited: {filled_visited[x][y]}\n')
                 if self.board[x][y] == '' and filled_visited[x][y] == 0:
-                    #self.board[letter_loc] = ''
+                    self.board[letter_loc] = ''
                     return False
-        #self.board[letter_loc] = ''
+        self.board[letter_loc] = ''
         return True
         
     def boardFloodSearch(self, adjacents, visited):
@@ -218,7 +218,7 @@ class Strands:
     pictures = {}
     songs = {}
     title_screen_song = 'Honey.mp3'
-    music_volume = 0
+    music_volume = 0.25
     channel = pg.mixer.Channel(0)
     screen = pg.display.set_mode((400, 867))
     volume_slider = pgw.slider.Slider(screen, 250, 50, 100, 25, min=0, max=99, initial = music_volume * 100)
@@ -230,6 +230,7 @@ class Strands:
     start = True
     level_select = False
     page_num = 1
+    level_num = 3
     settings = False
     ## CLASS VARIABLES
 
@@ -242,9 +243,11 @@ class Strands:
                 pgw.update(event)
 
         else:
-            
+            while not self.board.checkBoard()[0]:
+                self.word_locs = self.board.fillBoard(self.all_words[self.level_num])
+          
             if len(self.found_words) == 48:
-                start = False
+                self.start = False
                 print('You win!')
 
             if self.word_path in self.word_locs.values():
