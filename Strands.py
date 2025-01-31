@@ -226,10 +226,13 @@ class Strands:
     word_locs = {}
     all_words = []
     found_words = []
+    start_time = time.time()
+    game_score = 0
     running = True
-    start = True
+    start = False
     level_select = False
-    page_num = 1
+    win = False
+    page_num = 0
     level_num = 3
     settings = False
     ## CLASS VARIABLES
@@ -248,16 +251,28 @@ class Strands:
           
             if len(self.found_words) == 48:
                 self.start = False
-                print('You win!')
+                self.found_words = []
+                self.word_path = []
+                self.word_locs = {}
+                self.win = True
+                self.game_score = (self.game_score / (time.time()-self.start_time)) * 100
+                print(f'Game Score: {self.game_score}')
 
             if self.word_path in self.word_locs.values():
                     
                     #print(f'Congrats, you found the word {value}.')
                     self.board.colorBoard(self.screen, squares=self.word_path, color='yellow')
                     self.found_words.extend(self.word_path)
+                    if self.word_path == self.word_locs[self.all_words[self.level_num][1]]: # spangram
+                        self.game_score += 200*len(self.word_path)
+                    else:
+                        self.game_score += 100*len(self.word_path)
+                    print(self.game_score)
                     self.word_path = []
+                    
                     #time.sleep(10)
-            else:
+            else:    
+                    #print(f'Time: {time.time() - self.start_time}')    
                     self.board.colorBoard(self.screen, squares=self.word_path, color=self.board.color, found_words=self.found_words)
         pg.display.update()
 
@@ -314,13 +329,13 @@ class Strands:
             self.channel.play(self.songs[self.title_screen_song])
         
         ## title text, if hasn't clicked start, board display otherwise
-        if not self.start and not self.level_select:
+        if not self.start and not self.level_select and not self.win:
 
             if not self.settings: ## different setup for settings menu vs. just reg homescreen
                 self.screen.blit(self.pictures['heart.png'], (40,250,0,0))
-                self.screen.blit(self.pictures['kiera1.jpeg'], (140,315,0,0))
+                self.screen.blit(self.pictures['kiera5_cutout.png'], (-10,253,0,0))
                 self.screen.blit(title_text, (100, 50, 0, 0))
-            
+           
                 for text in menu_text:
                     txt_surface = home_screen_font.render(text, True, (135, 20, 0))
                     self.screen.blit(txt_surface,menu_text[text])
@@ -353,17 +368,19 @@ class Strands:
                 else:
                     x_coord += 70
                 
-
         elif self.start:
            
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
             self.channel.fadeout(4000)
 
             self.board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
-            words = self.all_words[3]
+            words = self.all_words[self.level_num]
             self.word_locs = self.board.fillBoard(words)
-
+            self.start_time = time.time()
             return self.board
+        
+        elif self.win:
+            pass
        
     def loadAssets(self):
         
@@ -384,7 +401,11 @@ class Strands:
             filepath = os.path.join(directory + '/pictures', filename)
             image = pg.image.load(filepath).convert_alpha()
             width, height = image.get_size()
-            sf = 0.25
+            if 'kiera5' in filepath:
+                sf = 0.71
+                image = pg.transform.rotate(image, -1)
+            else:
+                sf = 0.25
             
             image = pg.transform.scale(image, (width*sf, height*sf))
             self.pictures[filename] = image
@@ -432,7 +453,7 @@ class Strands:
             if event.type == pg.MOUSEBUTTONDOWN:
 
                 mouse_pos = pg.mouse.get_pos()
-                if not self.start:
+                if not self.start and not self.level_select:
                     ## check if on the start button/do other detection for buttons
                     start_loc = text['START']
                     settings_loc = text['SETTINGS']
@@ -457,7 +478,17 @@ class Strands:
                         self.settings = True
                         self.setup()
                         # settings
-
+                elif self.level_select:
+                    
+                    for row in range(12):
+                        for col in range(5):
+                            if ((mouse_pos[0] -  (35+(col*70)) > 0 and mouse_pos[0] - (35+(col*70)) <= 50) 
+                            and (mouse_pos[1] -  (140+(row*55)) > 0 and mouse_pos[1] - (140+(row*55)) <= 50)):
+                                self.level_num = (5*row) + col
+                                self.level_select = False
+                                self.start = True
+                                self.setup()
+                    
                 else: ## game board interaction handling
 
                     for i in range(8):
