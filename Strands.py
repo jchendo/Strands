@@ -1,6 +1,8 @@
+import json
 import os
 import random
 import time
+from token import PERCENT
 import pygame as pg
 import numpy as np
 import threading
@@ -121,7 +123,7 @@ class Board:
                     
                 word_locs[word].append(curr_position)
                 Strands.screen.blit(text_surface, self.letter_locs[curr_position])
-      
+        print(word_locs)
         return word_locs
 
     def openGridSquares(self, curr_position, open=True): ## returns list of open grid squares surrounding the given curr_position
@@ -217,7 +219,7 @@ class Strands:
     BOARD_FONT = pg.font.SysFont('arial', 25)
     pictures = {}
     songs = {}
-    title_screen_song = 'Honey.mp3'
+    title_screen_song = 'Honey.ogg'
     music_volume = 0.25
     channel = pg.mixer.Channel(0)
     screen = pg.display.set_mode((400, 867))
@@ -226,64 +228,87 @@ class Strands:
     word_locs = {}
     all_words = []
     found_words = []
+    curr_word = ''
+    dictionary = {} ## merriam webster ahh
     start_time = time.time()
     game_score = 0
+    game_state = 'TITLE'
+    check_word = False
+    hint_prog = 0
     running = True
-    start = False
-    level_select = False
-    win = False
     page_num = 0
-    level_num = 3
-    settings = False
+    level_num = 0
     ## CLASS VARIABLES
 
     def update(self, event):
-        ## just updating screen for now
-        if not self.start:
+        if self.game_state != 'START':
             self.screen.fill('pink')
             self.setup()
-            if self.settings: ## this whole thing is a little jank & so laggy but it works for now
+            if self.game_state == 'SETTINGS': ## this whole thing is a little jank & so laggy but it works for now
                 pgw.update(event)
 
         else:
             while not self.board.checkBoard()[0]:
+                self.setup()
                 self.word_locs = self.board.fillBoard(self.all_words[self.level_num])
+            
+            ## hints
+            if self.hint_prog <= 6:    
+                percent_hint = self.hint_prog / 6.0
+            else:
+                percent_hint = 1 ## keeps hints stored but doesn't display ridiculously long bar
+                
+            pg.draw.rect(self.screen, 'black', pg.Rect(25, 800, 100, 30), border_radius=30) ## hint background
+            pg.draw.rect(self.screen, 'lightpink', pg.Rect(30, 802, 90*percent_hint, 27), border_radius=int(30*percent_hint)+30) ## hint bar
           
             if len(self.found_words) == 48:
-                self.start = False
+                self.game_state = 'WIN'
                 self.found_words = []
                 self.word_path = []
                 self.word_locs = {}
-                self.win = True
                 self.game_score = (self.game_score / (time.time()-self.start_time)) * 100
                 print(f'Game Score: {self.game_score}')
-
-            if self.word_path in self.word_locs.values():
+                self.setup()
+            if self.check_word:
+                try:
+                    if self.word_path in self.word_locs.values():
                     
-                    #print(f'Congrats, you found the word {value}.')
-                    self.board.colorBoard(self.screen, squares=self.word_path, color='yellow')
-                    self.found_words.extend(self.word_path)
-                    if self.word_path == self.word_locs[self.all_words[self.level_num][1]]: # spangram
-                        self.game_score += 200*len(self.word_path)
-                    else:
-                        self.game_score += 100*len(self.word_path)
-                    print(self.game_score)
+                            #print(f'Congrats, you found the word {value}.')
+                            self.board.colorBoard(self.screen, squares=self.word_path, color='yellow')
+                            self.found_words.extend(self.word_path)
+                            if self.word_path == self.word_locs[self.all_words[self.level_num][1]]: # spangram
+                                self.game_score += 200*len(self.word_path)
+                            else:
+                                self.game_score += 100*len(self.word_path)
+                            print(self.game_score)
+                    elif self.curr_word in self.all_words[self.level_num]: ## if words can be made multiple ways (due to inherently random nature of board placement)
+                        print("You're on the right track! Try a different combination of the same letters...")
+                    elif self.dictionary[str.lower(self.curr_word)] == 1:
+                        self.hint_prog += 1
+                        print(self.hint_prog)
+                except:
+                    self.check_word = False
                     self.word_path = []
+                    self.curr_word = ''
+                    pass
+                
+                self.curr_word = ''
+                self.check_word = False
+                self.word_path = []
+            #elif True: ## word in dictionary check
+             #   pass
                     
-                    #time.sleep(10)
-            else:    
-                    #print(f'Time: {time.time() - self.start_time}')    
-                    self.board.colorBoard(self.screen, squares=self.word_path, color=self.board.color, found_words=self.found_words)
+            else:        
+                self.board.colorBoard(self.screen, squares=self.word_path, color=self.board.color, found_words=self.found_words)
         pg.display.update()
 
-    def spawnHearts(self):
+    def spawnLittles(self, pic):
         ## animates the hearts that appear on the homescreen
+        ## and other things, has been repurposed but has artifacts from a different time........
         sf = 0.05
         num_hearts = 50 ## number to appear on screen at once
-        heart = self.pictures['heart.png']
-        width, height = heart.get_size()
-        heart = pg.transform.scale(heart, (width*sf, height*sf))
-
+        width, height = pic.get_size()
+        pic = pg.transform.scale(pic, (width*sf, height*sf))
         heart_locs = []
 
         for i in range(num_hearts):
@@ -291,14 +316,13 @@ class Strands:
            y_coords = np.random.randint(-1000, 0, size=num_hearts) ## spawns some outside the screen to stagger the waterfall
            heart_locs.append([x_coords[i], y_coords[i]])
             
-        while not self.start:
+        while self.game_state != 'START':
             pg.time.delay(20)
-            self.animateHearts(heart,heart_locs)
+            self.animate(pic,heart_locs)
                   
-    def animateHearts(self, heart,heart_locs):
+    def animate(self, heart,heart_locs):
         
         y_coord = 0
-
         for i in range(len(heart_locs)):
             
             self.screen.blit(heart, heart_locs[i])
@@ -329,9 +353,9 @@ class Strands:
             self.channel.play(self.songs[self.title_screen_song])
         
         ## title text, if hasn't clicked start, board display otherwise
-        if not self.start and not self.level_select and not self.win:
+        if self.game_state != 'START' and self.game_state != 'SELECT' and self.game_state != 'WIN':
 
-            if not self.settings: ## different setup for settings menu vs. just reg homescreen
+            if self.game_state != 'SETTINGS': ## different setup for settings menu vs. just reg homescreen
                 self.screen.blit(self.pictures['heart.png'], (40,250,0,0))
                 self.screen.blit(self.pictures['kiera5_cutout.png'], (-10,253,0,0))
                 self.screen.blit(title_text, (100, 50, 0, 0))
@@ -347,7 +371,7 @@ class Strands:
                 self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
                 self.music_volume = self.volume_slider.getValue() / 100
                 self.channel.set_volume(self.music_volume)
-        elif self.level_select:       
+        elif self.game_state == 'SELECT':       
             text = 'Level Select'
             ## (60 * page_num) per page (60 * page_num) + 60
             lower_range = 60 * self.page_num
@@ -368,7 +392,7 @@ class Strands:
                 else:
                     x_coord += 70
                 
-        elif self.start:
+        elif self.game_state == 'START':
            
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
             self.channel.fadeout(4000)
@@ -379,8 +403,11 @@ class Strands:
             self.start_time = time.time()
             return self.board
         
-        elif self.win:
-            pass
+        elif self.game_state == 'WIN':
+            win_text = 'YOU WIN!'
+            sub_text = 'Go baby!!!!'
+            thread = threading.Thread(target=self.spawnLittles, args=[self.pictures['heart.png']])
+            thread.start()
        
     def loadAssets(self):
         
@@ -392,6 +419,11 @@ class Strands:
         text = open(fpath)
         
         
+        for filename in os.listdir(directory + '/text'): ## images
+            if filename == 'dictionary_words.json':
+                file = open(os.path.join(directory + '/text', filename))
+                self.dictionary = json.load(file)
+                
         for line in text.readlines():
             words = line.split(", ")
             self.all_words.append(words)
@@ -401,11 +433,7 @@ class Strands:
             filepath = os.path.join(directory + '/pictures', filename)
             image = pg.image.load(filepath).convert_alpha()
             width, height = image.get_size()
-            if 'kiera5' in filepath:
-                sf = 0.71
-                image = pg.transform.rotate(image, -1)
-            else:
-                sf = 0.25
+            sf = 0.25
             
             image = pg.transform.scale(image, (width*sf, height*sf))
             self.pictures[filename] = image
@@ -453,40 +481,39 @@ class Strands:
             if event.type == pg.MOUSEBUTTONDOWN:
 
                 mouse_pos = pg.mouse.get_pos()
-                if not self.start and not self.level_select:
+                if self.game_state != 'START' and self.game_state != 'SELECT':
                     ## check if on the start button/do other detection for buttons
                     start_loc = text['START']
                     settings_loc = text['SETTINGS']
 
-                    if self.settings:
+                    if self.game_state == 'SETTINGS':
                             
                         if ((mouse_pos[0] >= 0 and mouse_pos[0] <= 64) 
                         and (mouse_pos[1] >= 0 and mouse_pos[1] <= 64)):
 
-                            self.settings = False
+                            self.game_state = 'TITLE'
                             self.setup()
 
                     if ((mouse_pos[0] >= start_loc[0] and mouse_pos[0] <= start_loc[0] + 80) 
                     and (mouse_pos[1] >= start_loc[1] and mouse_pos[1] <= start_loc[1]+30)):
 
-                        self.level_select = True
+                        self.game_state = 'SELECT'
                         self.setup()
 
                     elif ((mouse_pos[0] >= settings_loc[0] and mouse_pos[0] <= settings_loc[0] + 150) 
                     and (mouse_pos[1] >= settings_loc[1] and mouse_pos[1] <= settings_loc[1]+30)):
 
-                        self.settings = True
+                        self.game_state = 'SETTINGS'
                         self.setup()
                         # settings
-                elif self.level_select:
+                elif self.game_state == 'SELECT':
                     
                     for row in range(12):
                         for col in range(5):
                             if ((mouse_pos[0] -  (35+(col*70)) > 0 and mouse_pos[0] - (35+(col*70)) <= 50) 
                             and (mouse_pos[1] -  (140+(row*55)) > 0 and mouse_pos[1] - (140+(row*55)) <= 50)):
                                 self.level_num = (5*row) + col
-                                self.level_select = False
-                                self.start = True
+                                self.game_state = 'START'
                                 self.setup()
                     
                 else: ## game board interaction handling
@@ -502,15 +529,17 @@ class Strands:
                                 if (i,j) not in self.found_words:
 
                                     if (i,j) in self.word_path:
-                                        self.word_path.remove((i,j))
-                                        self.word_path.clear()
+                                        self.check_word = True
                                         self.board.color = 'red'
                                         self.board.colorBoard(self.screen)
                                     elif len(self.word_path) == 0:
                                         self.word_path.append((i,j))
+                                        self.curr_word += self.board.board[i][j]
                                         self.board.color = 'darkred'
                                     elif (i,j) in self.board.openGridSquares(self.word_path[len(self.word_path)-1], open=False):
                                         self.word_path.append((i,j))
+                                        self.curr_word += self.board.board[i][j]
+                                        print(self.curr_word)
                                         self.board.color = 'darkred'
                                     else:
                                         self.board.color = 'red'
@@ -527,11 +556,12 @@ class Strands:
         self.loadAssets()
         text = self.setup() ## setup returns a dictionary w/ title text & their respective locations. 
                             ## helpful for checking if buttons have been pressed; see eventHandler()
-        thread = threading.Thread(target=self.spawnHearts, daemon=True)
+        print('prethread')
+        thread = threading.Thread(target=self.spawnLittles, args=[self.pictures['heart.png']])
         thread.start()
+        print('postthread')
         
         while self.running:
-
             event = self.eventHandler(text)
             self.update(event)
             
@@ -544,5 +574,5 @@ def main():
     game = Strands()
     game.run()
 
-if __name__ == main():
+if __name__ == '__main__':
     main()
