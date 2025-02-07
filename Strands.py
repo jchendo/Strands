@@ -2,7 +2,6 @@ import json
 import os
 import random
 import time
-from token import PERCENT
 import pygame as pg
 import numpy as np
 import threading
@@ -12,12 +11,10 @@ import pygame_widgets as pgw ##  type: ignore
 from pygame_widgets.slider import Slider # type: ignore
 
 ## TO DO (not in any particular order) - complete by 02/19/25:
-## 1. determine how to arrange words/letters randomly without isolating individual letters/making it impossible to construct remaining words
 ## 2. figure out how to save progress on a given game in case she wants to come back to it later
-## 3. implement word/topic selection, likely using ChatGPT API (?)
-## 5. different difficulty levels?
-## 6. general setup & visuals, home screen, etc.
-## 7. OPTIONAL, kinda: implement network connectivity so we can play together? or perhaps just so it can be a web app before iOS.
+## 3. setting song selection
+## maybe difficulty levels? make words more likely to be up down l, r, as opposed to diag? probs after vday
+
 
 ## board object since i'm assuming we'll have multiple (?) at once
 class Board:
@@ -50,7 +47,7 @@ class Board:
     def colorBoard(self,screen,squares=[],color='red', found_words=[], hint_words = []):
 
         if squares == [] and color=='red':
-
+            #print("meow")
             for i in range(8):
                 ## Changes which row the squares are drawn on.
                 rowCoord = 200 + (i*60)
@@ -65,8 +62,7 @@ class Board:
                         pg.draw.rect(screen, 'yellow', pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                         Strands.screen.blit(text_surface, location)
                     elif (i,j) in hint_words:
-                        print("hello")
-                        pg.draw.rect(screen, 'blue', pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                        pg.draw.rect(screen, 'purple', pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                         Strands.screen.blit(text_surface, location)
                     else:
                         
@@ -79,14 +75,12 @@ class Board:
             for i in range(len(squares)):
                 
                 loc = squares[i]
-                try:
-                    location = self.letter_locs[loc]
-                    letter = self.board[loc]
-                    text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
-                    pg.draw.rect(screen, color, pg.Rect(location[0]-20, location[1]-15, 50, 50), border_radius=15)
-                    Strands.screen.blit(text_surface, location)
-                except:
-                    pass
+                location = self.letter_locs[loc]
+                letter = self.board[loc]
+                text_surface = Strands.BOARD_FONT.render(letter, True, (0,0,0))
+                pg.draw.rect(screen, self.color, pg.Rect(location[0]-20, location[1]-15, 50, 50), border_radius=15)
+                Strands.screen.blit(text_surface, location)
+
                 
     def fillBoard(self, words):
         ## to start
@@ -240,7 +234,8 @@ class Strands:
     game_score = 0
     game_state = 'TITLE'
     check_word = False
-    hint_prog = 6
+    hint_prog = 12
+    num_hints = 0
     running = True
     page_num = 0
     level_num = 0
@@ -255,7 +250,7 @@ class Strands:
 
         else:
             while not self.board.checkBoard()[0]:
-                self.setup()
+                #self.setup()
                 self.word_locs = self.board.fillBoard(self.all_words[self.level_num])
             #print(self.word_locs)
             
@@ -273,6 +268,8 @@ class Strands:
                 self.found_words = []
                 self.word_path = []
                 self.word_locs = {}
+                self.hint_word_squares = []
+                self.hint_prog = 0
                 self.game_score = (self.game_score / (time.time()-self.start_time)) * 100
                 print(f'Game Score: {self.game_score}')
                 self.setup()
@@ -307,7 +304,7 @@ class Strands:
              #   pass
                     
             else:        
-                self.board.colorBoard(self.screen, squares=self.word_path, color=self.board.color, found_words=self.found_words, hint_words=self.hint_word_squares)
+                self.board.colorBoard(self.screen, squares=self.word_path, found_words=self.found_words, hint_words=self.hint_word_squares)
         pg.display.update()
 
     def spawnLittles(self, pic):
@@ -412,14 +409,28 @@ class Strands:
         
         elif self.game_state == 'WIN':
             win_text = 'YOU WIN!'
-            sub_text = 'Go baby!!!!'
+            sub_text = 'Go baby!!'
             back_text = 'Back to Title Screen'
+            score_text = f'Final Score: {int(self.game_score)}'
+            hint_text = f'Hints Used: {self.num_hints}'
+             
             #thread = threading.Thread(target=self.spawnLittles, args=[self.pictures['heart.png']])
             #thread.start()
+            self.screen.blit(self.pictures['pedestal.png'], (170,550,0,0))
+            self.screen.blit(self.pictures['kiera3.png'], (160,285,0,0))
+            
             text_surface = home_screen_font.render(back_text, True, (0,0,0))
             self.screen.blit(text_surface, (60, 780))
+            text_surface = self.GAME_FONT.render(win_text, True, 'red')
+            self.screen.blit(text_surface, (100, 100))
+            text_surface = home_screen_font.render(sub_text, True, 'deeppink')
+            self.screen.blit(text_surface, (125, 165))
+            text_surface = home_screen_font.render(score_text, True, (0,0,0))
+            self.screen.blit(text_surface, (80, 250))
+            text_surface = home_screen_font.render(hint_text, True, (0,0,0))
+            self.screen.blit(text_surface, (80, 280))
+            self.num_hints = 0 ## doing it down here b/c in update it would update before printing
             
-       
     def loadAssets(self):
         
         directory = "./dat"
@@ -444,13 +455,12 @@ class Strands:
             filepath = os.path.join(directory + '/pictures', filename)
             image = pg.image.load(filepath).convert_alpha()
             width, height = image.get_size()
-            if filename == 'us.PNG':
+            if filename == 'us.PNG' or filename == 'kiera3.png' or filename == 'pedestal.png':
                 sf = 0.75
             else:
                 sf = 0.25
             
             image = pg.transform.scale(image, (width*sf, height*sf))
-            print(filename)
             self.pictures[filename] = image
 
             # progress bar 
@@ -534,19 +544,27 @@ class Strands:
                 elif self.game_state == 'WIN':
                     if ((mouse_pos[0] >= 60 and mouse_pos[0] <= 340) 
                     and (mouse_pos[1] >= 780 and mouse_pos[1] <= 810)):
+                        print("title")
                         self.game_state = 'TITLE'
                         self.setup()
                 else: ## game board interaction handling
 
                     if ((mouse_pos[0] >= 25 and mouse_pos[0] <= 125)
-                    and (mouse_pos[1] >= 800 and mouse_pos[1] <= 830)):
+                    and (mouse_pos[1] >= 800 and mouse_pos[1] <= 830)
+                    and self.hint_prog >= 6):
+                        
                         self.hint_prog -= 6
-                        for word in self.all_words[self.level_num][1:]:
-                            if word not in self.found_words:
-                                self.hint_word_squares.append(self.word_locs[word])
-                                self.board.colorBoard(self.screen,squares=self.hint_word_squares, color='blueviolet')
+                        self.num_hints += 1
+                        words = self.all_words[self.level_num][1:]
+                        random.shuffle(words)
+                        for word in words:
+                            if self.word_locs[word] not in self.found_words and self.word_locs[word][0] not in self.hint_word_squares:
+                                self.hint_word_squares.extend(self.word_locs[word])
+                                #self.board.color = 'blueviolet'
+                                print(self.hint_word_squares)
+                                self.board.colorBoard(self.screen,hint_words=self.hint_word_squares)
                                 break
-                        print(self.hint_word_squares)
+                        
                                 
                     for i in range(8):
                         loc_list = self.board.letter_locs[i]
@@ -566,11 +584,13 @@ class Strands:
                                         self.word_path.append((i,j))
                                         self.curr_word += self.board.board[i][j]
                                         self.board.color = 'darkred'
+                                        self.board.colorBoard(self.screen, squares=self.word_path, color = self.board.color)
                                     elif (i,j) in self.board.openGridSquares(self.word_path[len(self.word_path)-1], open=False):
                                         self.word_path.append((i,j))
                                         self.curr_word += self.board.board[i][j]
                                         print(self.curr_word)
                                         self.board.color = 'darkred'
+                                        self.board.colorBoard(self.screen, squares=self.word_path, color = self.board.color)
                                     else:
                                         self.board.color = 'red'
                                 else:
