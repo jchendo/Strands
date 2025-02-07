@@ -47,7 +47,7 @@ class Board:
                 pg.draw.rect(screen, self.color, pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                 self.letter_locs[i][j] = (colCoord+20, rowCoord+15)
     
-    def colorBoard(self,screen,squares=[],color='red', found_words=[]):
+    def colorBoard(self,screen,squares=[],color='red', found_words=[], hint_words = []):
 
         if squares == [] and color=='red':
 
@@ -63,6 +63,10 @@ class Board:
                     
                     if (i,j) in found_words:
                         pg.draw.rect(screen, 'yellow', pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
+                        Strands.screen.blit(text_surface, location)
+                    elif (i,j) in hint_words:
+                        print("hello")
+                        pg.draw.rect(screen, 'blue', pg.Rect(colCoord,rowCoord, 50, 50), border_radius=15)
                         Strands.screen.blit(text_surface, location)
                     else:
                         
@@ -123,7 +127,7 @@ class Board:
                     
                 word_locs[word].append(curr_position)
                 Strands.screen.blit(text_surface, self.letter_locs[curr_position])
-        print(word_locs)
+        
         return word_locs
 
     def openGridSquares(self, curr_position, open=True): ## returns list of open grid squares surrounding the given curr_position
@@ -228,13 +232,15 @@ class Strands:
     word_locs = {}
     all_words = []
     found_words = []
+    hint_word_squares = []
     curr_word = ''
+    extra_words = []
     dictionary = {} ## merriam webster ahh
     start_time = time.time()
     game_score = 0
     game_state = 'TITLE'
     check_word = False
-    hint_prog = 0
+    hint_prog = 6
     running = True
     page_num = 0
     level_num = 0
@@ -251,6 +257,7 @@ class Strands:
             while not self.board.checkBoard()[0]:
                 self.setup()
                 self.word_locs = self.board.fillBoard(self.all_words[self.level_num])
+            #print(self.word_locs)
             
             ## hints
             if self.hint_prog <= 6:    
@@ -259,7 +266,7 @@ class Strands:
                 percent_hint = 1 ## keeps hints stored but doesn't display ridiculously long bar
                 
             pg.draw.rect(self.screen, 'black', pg.Rect(25, 800, 100, 30), border_radius=30) ## hint background
-            pg.draw.rect(self.screen, 'lightpink', pg.Rect(30, 802, 90*percent_hint, 27), border_radius=int(30*percent_hint)+30) ## hint bar
+            pg.draw.rect(self.screen, 'goldenrod1', pg.Rect(30, 803, 90*percent_hint, 24), border_radius=(int(30*percent_hint)+30)) ## hint bar
           
             if len(self.found_words) == 48:
                 self.game_state = 'WIN'
@@ -274,7 +281,7 @@ class Strands:
                     if self.word_path in self.word_locs.values():
                     
                             #print(f'Congrats, you found the word {value}.')
-                            self.board.colorBoard(self.screen, squares=self.word_path, color='yellow')
+                            self.board.colorBoard(self.screen, squares=self.word_path, color='yellow', hint_words=self.hint_word_squares)
                             self.found_words.extend(self.word_path)
                             if self.word_path == self.word_locs[self.all_words[self.level_num][1]]: # spangram
                                 self.game_score += 200*len(self.word_path)
@@ -283,9 +290,10 @@ class Strands:
                             print(self.game_score)
                     elif self.curr_word in self.all_words[self.level_num]: ## if words can be made multiple ways (due to inherently random nature of board placement)
                         print("You're on the right track! Try a different combination of the same letters...")
-                    elif self.dictionary[str.lower(self.curr_word)] == 1:
+                    elif self.dictionary[str.lower(self.curr_word)] == 1 and self.curr_word not in self.extra_words:
                         self.hint_prog += 1
                         print(self.hint_prog)
+                        self.extra_words.append(self.curr_word)
                 except:
                     self.check_word = False
                     self.word_path = []
@@ -299,7 +307,7 @@ class Strands:
              #   pass
                     
             else:        
-                self.board.colorBoard(self.screen, squares=self.word_path, color=self.board.color, found_words=self.found_words)
+                self.board.colorBoard(self.screen, squares=self.word_path, color=self.board.color, found_words=self.found_words, hint_words=self.hint_word_squares)
         pg.display.update()
 
     def spawnLittles(self, pic):
@@ -356,8 +364,7 @@ class Strands:
         if self.game_state != 'START' and self.game_state != 'SELECT' and self.game_state != 'WIN':
 
             if self.game_state != 'SETTINGS': ## different setup for settings menu vs. just reg homescreen
-                self.screen.blit(self.pictures['heart.png'], (40,250,0,0))
-                self.screen.blit(self.pictures['kiera5_cutout.png'], (-10,253,0,0))
+                self.screen.blit(self.pictures['us.PNG'], (-20,250,0,0))
                 self.screen.blit(title_text, (100, 50, 0, 0))
            
                 for text in menu_text:
@@ -406,8 +413,12 @@ class Strands:
         elif self.game_state == 'WIN':
             win_text = 'YOU WIN!'
             sub_text = 'Go baby!!!!'
-            thread = threading.Thread(target=self.spawnLittles, args=[self.pictures['heart.png']])
-            thread.start()
+            back_text = 'Back to Title Screen'
+            #thread = threading.Thread(target=self.spawnLittles, args=[self.pictures['heart.png']])
+            #thread.start()
+            text_surface = home_screen_font.render(back_text, True, (0,0,0))
+            self.screen.blit(text_surface, (60, 780))
+            
        
     def loadAssets(self):
         
@@ -433,9 +444,13 @@ class Strands:
             filepath = os.path.join(directory + '/pictures', filename)
             image = pg.image.load(filepath).convert_alpha()
             width, height = image.get_size()
-            sf = 0.25
+            if filename == 'us.PNG':
+                sf = 0.75
+            else:
+                sf = 0.25
             
             image = pg.transform.scale(image, (width*sf, height*sf))
+            print(filename)
             self.pictures[filename] = image
 
             # progress bar 
@@ -515,9 +530,24 @@ class Strands:
                                 self.level_num = (5*row) + col
                                 self.game_state = 'START'
                                 self.setup()
-                    
+                                
+                elif self.game_state == 'WIN':
+                    if ((mouse_pos[0] >= 60 and mouse_pos[0] <= 340) 
+                    and (mouse_pos[1] >= 780 and mouse_pos[1] <= 810)):
+                        self.game_state = 'TITLE'
+                        self.setup()
                 else: ## game board interaction handling
 
+                    if ((mouse_pos[0] >= 25 and mouse_pos[0] <= 125)
+                    and (mouse_pos[1] >= 800 and mouse_pos[1] <= 830)):
+                        self.hint_prog -= 6
+                        for word in self.all_words[self.level_num][1:]:
+                            if word not in self.found_words:
+                                self.hint_word_squares.append(self.word_locs[word])
+                                self.board.colorBoard(self.screen,squares=self.hint_word_squares, color='blueviolet')
+                                break
+                        print(self.hint_word_squares)
+                                
                     for i in range(8):
                         loc_list = self.board.letter_locs[i]
                         for j in range(6):
@@ -531,7 +561,7 @@ class Strands:
                                     if (i,j) in self.word_path:
                                         self.check_word = True
                                         self.board.color = 'red'
-                                        self.board.colorBoard(self.screen)
+                                        self.board.colorBoard(self.screen, hint_words=self.hint_word_squares)
                                     elif len(self.word_path) == 0:
                                         self.word_path.append((i,j))
                                         self.curr_word += self.board.board[i][j]
@@ -574,5 +604,5 @@ def main():
     game = Strands()
     game.run()
 
-if __name__ == '__main__':
+if __name__ == main():
     main()
