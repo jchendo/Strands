@@ -12,9 +12,7 @@ from pygame_widgets.slider import Slider # type: ignore
 
 ## TO DO (not in any particular order) - complete by 02/19/25:
 ## 2. figure out how to save progress on a given game in case she wants to come back to it later
-## 3. setting song selection
 ## maybe difficulty levels? make words more likely to be up down l, r, as opposed to diag? probs after vday
-
 
 ## board object since i'm assuming we'll have multiple (?) at once
 class Board:
@@ -93,7 +91,10 @@ class Board:
         game_title = words[0]
         spangram = words[1]
         words[len(words)-1] = words[len(words)-1].rstrip() ## white space at the end of .txt lines
-        font_size = 50 - ((len(game_title) - 15) * 10) ## this logic isn't great so probably change it
+        if len(game_title) <= 15:
+            font_size = 50
+        else:
+            font_size = 50 - ((len(game_title) - 15) * 10) ## this logic isn't great so probably change it
         variable_font = pg.font.SysFont('arial', font_size, bold=True)
         #self.board[curr_position] = words[1][0]
         
@@ -102,7 +103,7 @@ class Board:
             if word == game_title:
                  ## accounts for differing lengths of titles
                 title_text = variable_font.render(game_title, True, (0,0,0))
-                x_loc = (Strands.screen.get_width() / len(game_title)) ## this is pretty jank lol & doesn't scale that well but it's fine for now
+                x_loc = (Strands.screen.get_width() / len(game_title) + 30) ## this is pretty jank lol & doesn't scale that well but it's fine for now
                 Strands.screen.blit(title_text, (x_loc,50,0,0))
                 continue
             else:
@@ -207,7 +208,6 @@ class Board:
             return True, [(0,0)] ## if the board is full, return True & send 0,0
         return False, open_squares ## else show me the open squares!!!!    
 
-
 class Strands:
     
     ## INITS
@@ -238,7 +238,7 @@ class Strands:
     hint_prog = 0
     num_hints = 0
     running = True
-    page_num = 1
+    page_num = 0
     level_num = 0
     ## CLASS VARIABLES
 
@@ -391,6 +391,7 @@ class Strands:
             x_coord = 35
             y_coord = 140
             title_surface = self.GAME_FONT.render(text, True, 'red')
+            self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
             self.screen.blit(title_surface, (80, 50))
             if self.page_num > 0:
                 self.screen.blit(self.pictures['left_arrow.png'], (135, 800, 0, 0))
@@ -419,6 +420,7 @@ class Strands:
             words = self.all_words[self.level_num]
             self.word_locs = self.board.fillBoard(words)
             self.start_time = time.time()
+            self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
             return self.board
         
         elif self.game_state == 'WIN':
@@ -522,7 +524,7 @@ class Strands:
             if event.type == pg.MOUSEBUTTONDOWN:
 
                 mouse_pos = pg.mouse.get_pos()
-                if self.game_state != 'START' and self.game_state != 'SELECT':
+                if self.game_state != 'START' and self.game_state != 'SELECT' and self.game_state != 'WIN':
                     ## check if on the start button/do other detection for buttons
                     start_loc = text['START']
                     settings_loc = text['SETTINGS']
@@ -573,7 +575,12 @@ class Strands:
                         self.setup()
                         # settings
                 elif self.game_state == 'SELECT':
-                    
+                    ## back button
+                    if ((mouse_pos[0] >= 0 and mouse_pos[0] <= 64) 
+                    and (mouse_pos[1] >= 0 and mouse_pos[1] <= 64)):
+                        self.game_state = 'TITLE'
+                        self.setup()
+                    ## page change buttons
                     if ((mouse_pos[0] >= 135 and mouse_pos[0] <= 185) 
                     and (mouse_pos[1] >= 800 and mouse_pos[1] <= 850)
                     and self.page_num > 0):
@@ -585,7 +592,7 @@ class Strands:
                     and self.page_num < 4):
                         self.page_num += 1
                         self.setup()
-                      
+                    ## level select buttons
                     for row in range(12):
                         for col in range(5):
                             if ((mouse_pos[0] -  (35+(col*70)) > 0 and mouse_pos[0] - (35+(col*70)) <= 50) 
@@ -595,13 +602,16 @@ class Strands:
                                 self.setup()
                                 
                 elif self.game_state == 'WIN':
-                    print("hello")
                     if ((mouse_pos[0] >= 60 and mouse_pos[0] <= 340) 
                     and (mouse_pos[1] >= 780 and mouse_pos[1] <= 810)):
-                        print("title")
                         self.game_state = 'TITLE'
                         self.setup()
                 else: ## game board interaction handling
+
+                    if ((mouse_pos[0] >= 0 and mouse_pos[0] <= 64) 
+                    and (mouse_pos[1] >= 0 and mouse_pos[1] <= 64)):
+                        self.game_state = 'SELECT'
+                        self.setup()
 
                     if ((mouse_pos[0] >= 25 and mouse_pos[0] <= 125)
                     and (mouse_pos[1] >= 800 and mouse_pos[1] <= 830)
