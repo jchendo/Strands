@@ -93,15 +93,16 @@ class Board:
         game_title = words[0]
         spangram = words[1]
         words[len(words)-1] = words[len(words)-1].rstrip() ## white space at the end of .txt lines
+        font_size = 50 - ((len(game_title) - 15) * 10) ## this logic isn't great so probably change it
+        variable_font = pg.font.SysFont('arial', font_size, bold=True)
         #self.board[curr_position] = words[1][0]
         
         for word in words:
 
             if word == game_title:
-
-                title_text = Strands.GAME_FONT.render(game_title, True, (0,0,0))
-                x_loc = (Strands.screen.get_width() / len(game_title)) + 30 ## this is pretty jank lol & doesn't scale that well but it's fine for now
-
+                 ## accounts for differing lengths of titles
+                title_text = variable_font.render(game_title, True, (0,0,0))
+                x_loc = (Strands.screen.get_width() / len(game_title)) ## this is pretty jank lol & doesn't scale that well but it's fine for now
                 Strands.screen.blit(title_text, (x_loc,50,0,0))
                 continue
             else:
@@ -234,10 +235,10 @@ class Strands:
     game_score = 0
     game_state = 'TITLE'
     check_word = False
-    hint_prog = 12
+    hint_prog = 0
     num_hints = 0
     running = True
-    page_num = 0
+    page_num = 1
     level_num = 0
     ## CLASS VARIABLES
 
@@ -370,11 +371,18 @@ class Strands:
 
                 return menu_text
             
-            else:
+            else: 
                 # settings
                 self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
                 self.music_volume = self.volume_slider.getValue() / 100
                 self.channel.set_volume(self.music_volume)
+    
+                self.screen.blit(pg.transform.scale_by(self.pictures['Honey.jpg'], 0.75), (50, 100, 0, 0))
+                self.screen.blit(pg.transform.scale_by(self.pictures['Across the Universe.jpg'], 0.75), (50, 250, 0, 0))
+                self.screen.blit(pg.transform.scale_by(self.pictures['Sex & Candy.jpg'], 0.75), (50, 400, 0, 0))
+                self.screen.blit(pg.transform.scale_by(self.pictures['Fireworks.jpg'], 0.75), (50, 550, 0, 0))
+                self.screen.blit(pg.transform.scale_by(self.pictures['Acolyte.jpg'], 0.75), (50, 700, 0, 0))
+                
         elif self.game_state == 'SELECT':       
             text = 'Level Select'
             ## (60 * page_num) per page (60 * page_num) + 60
@@ -384,6 +392,11 @@ class Strands:
             y_coord = 140
             title_surface = self.GAME_FONT.render(text, True, 'red')
             self.screen.blit(title_surface, (80, 50))
+            if self.page_num > 0:
+                self.screen.blit(self.pictures['left_arrow.png'], (135, 800, 0, 0))
+            if self.page_num < 4:
+                self.screen.blit(self.pictures['right_arrow.png'], (215, 800, 0, 0))
+            
             for i in range(lower_range, upper_range):
                 level_num = i+1
                 level_num_surface = self.BOARD_FONT.render(str(level_num), True, (0,0,0))
@@ -395,7 +408,8 @@ class Strands:
                     x_coord = 35
                 else:
                     x_coord += 70
-                
+            
+            
         elif self.game_state == 'START':
            
             self.screen.fill("pink") ## gets rid of all hearts & other stuff
@@ -429,7 +443,6 @@ class Strands:
             self.screen.blit(text_surface, (80, 250))
             text_surface = home_screen_font.render(hint_text, True, (0,0,0))
             self.screen.blit(text_surface, (80, 280))
-            self.num_hints = 0 ## doing it down here b/c in update it would update before printing
             
     def loadAssets(self):
         
@@ -457,6 +470,8 @@ class Strands:
             width, height = image.get_size()
             if filename == 'us.PNG' or filename == 'kiera3.png' or filename == 'pedestal.png':
                 sf = 0.75
+            elif 'arrow' in filename:
+                sf = 0.1
             else:
                 sf = 0.25
             
@@ -502,6 +517,7 @@ class Strands:
             
             if event.type == pg.QUIT:
                 self.running = False
+                os.system.exit()
                 
             if event.type == pg.MOUSEBUTTONDOWN:
 
@@ -518,7 +534,32 @@ class Strands:
 
                             self.game_state = 'TITLE'
                             self.setup()
-
+                            
+                        elif ((mouse_pos[0] >= 50 and mouse_pos[0] <= 170) 
+                        and (mouse_pos[1] >= 100 and mouse_pos[1] <= 220)):
+                            self.title_screen_song = 'Honey.ogg'
+                            self.channel.play(self.songs[self.title_screen_song])
+                            
+                        elif ((mouse_pos[0] >= 50 and mouse_pos[0] <= 170) 
+                        and (mouse_pos[1] >= 250 and mouse_pos[1] <= 370)):
+                            self.title_screen_song = 'Across the Universe.ogg'
+                            self.channel.play(self.songs[self.title_screen_song])
+                            
+                        elif ((mouse_pos[0] >= 50 and mouse_pos[0] <= 170) 
+                        and (mouse_pos[1] >= 400 and mouse_pos[1] <= 520)):
+                            self.title_screen_song = 'Sex & Candy.ogg'
+                            self.channel.play(self.songs[self.title_screen_song])
+                            
+                        elif ((mouse_pos[0] >= 50 and mouse_pos[0] <= 170) 
+                        and (mouse_pos[1] >= 550 and mouse_pos[1] <= 670)):
+                            self.title_screen_song = 'Fireworks.ogg'
+                            self.channel.play(self.songs[self.title_screen_song])
+                            
+                        elif ((mouse_pos[0] >= 50 and mouse_pos[0] <= 170) 
+                        and (mouse_pos[1] >= 700 and mouse_pos[1] <= 820)):
+                            self.title_screen_song = 'Acolyte.ogg'
+                            self.channel.play(self.songs[self.title_screen_song])
+                            
                     if ((mouse_pos[0] >= start_loc[0] and mouse_pos[0] <= start_loc[0] + 80) 
                     and (mouse_pos[1] >= start_loc[1] and mouse_pos[1] <= start_loc[1]+30)):
 
@@ -533,6 +574,18 @@ class Strands:
                         # settings
                 elif self.game_state == 'SELECT':
                     
+                    if ((mouse_pos[0] >= 135 and mouse_pos[0] <= 185) 
+                    and (mouse_pos[1] >= 800 and mouse_pos[1] <= 850)
+                    and self.page_num > 0):
+                        self.page_num -= 1
+                        self.setup()
+                        
+                    if ((mouse_pos[0] >= 210 and mouse_pos[0] <= 250) 
+                    and (mouse_pos[1] >= 800 and mouse_pos[1] <= 850)
+                    and self.page_num < 4):
+                        self.page_num += 1
+                        self.setup()
+                      
                     for row in range(12):
                         for col in range(5):
                             if ((mouse_pos[0] -  (35+(col*70)) > 0 and mouse_pos[0] - (35+(col*70)) <= 50) 
@@ -542,6 +595,7 @@ class Strands:
                                 self.setup()
                                 
                 elif self.game_state == 'WIN':
+                    print("hello")
                     if ((mouse_pos[0] >= 60 and mouse_pos[0] <= 340) 
                     and (mouse_pos[1] >= 780 and mouse_pos[1] <= 810)):
                         print("title")
@@ -596,8 +650,6 @@ class Strands:
                                 else:
                                     continue
                                 
-                            
-
             return event
                            
     ## core loop
@@ -606,10 +658,8 @@ class Strands:
         self.loadAssets()
         text = self.setup() ## setup returns a dictionary w/ title text & their respective locations. 
                             ## helpful for checking if buttons have been pressed; see eventHandler()
-        print('prethread')
         thread = threading.Thread(target=self.spawnLittles, args=[self.pictures['heart.png']])
         thread.start()
-        print('postthread')
         
         while self.running:
             event = self.eventHandler(text)
