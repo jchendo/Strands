@@ -240,6 +240,8 @@ class Strands:
     running = True
     page_num = 0
     level_num = 0
+    completed_levels = []
+    high_score = 0
     ## CLASS VARIABLES
 
     def update(self, event):
@@ -252,12 +254,12 @@ class Strands:
         else:
             while not self.board.checkBoard()[0]:
                 #self.setup()
-                self.word_locs = self.board.fillBoard(self.all_words[self.level_num])
+                self.word_locs = self.board.fillBoard(self.all_words[self.level_num-1])
             #print(self.word_locs)
             
             ## hints
-            if self.hint_prog <= 6:    
-                percent_hint = self.hint_prog / 6.0
+            if self.hint_prog <= 4:    
+                percent_hint = self.hint_prog / 4.0
             else:
                 percent_hint = 1 ## keeps hints stored but doesn't display ridiculously long bar
                 
@@ -272,7 +274,14 @@ class Strands:
                 self.hint_word_squares = []
                 self.hint_prog = 0
                 self.game_score = (self.game_score / (time.time()-self.start_time)) * 100
-                print(f'Game Score: {self.game_score}')
+                self.completed_levels.append(self.level_num)
+                if self.game_score > self.high_score:
+                    self.high_score = self.game_score
+                    ## blit NEW HIGH SCORE!
+                file = open('./dat/text/stats.txt', 'w')
+                file.write(str(int(self.high_score)) + '\n')
+                for level in self.completed_levels:
+                    file.write(str(level) + '\n')
                 self.setup()
             if self.check_word:
                 try:
@@ -281,16 +290,14 @@ class Strands:
                             #print(f'Congrats, you found the word {value}.')
                             self.board.colorBoard(self.screen, squares=self.word_path, color='yellow', hint_words=self.hint_word_squares)
                             self.found_words.extend(self.word_path)
-                            if self.word_path == self.word_locs[self.all_words[self.level_num][1]]: # spangram
+                            if self.word_path == self.word_locs[self.all_words[self.level_num-1][1]]: # spangram
                                 self.game_score += 200*len(self.word_path)
                             else:
                                 self.game_score += 100*len(self.word_path)
-                            print(self.game_score)
-                    elif self.curr_word in self.all_words[self.level_num]: ## if words can be made multiple ways (due to inherently random nature of board placement)
+                    elif self.curr_word in self.all_words[self.level_num-1]: ## if words can be made multiple ways (due to inherently random nature of board placement)
                         print("You're on the right track! Try a different combination of the same letters...")
                     elif self.dictionary[str.lower(self.curr_word)] == 1 and self.curr_word not in self.extra_words:
                         self.hint_prog += 1
-                        print(self.hint_prog)
                         self.extra_words.append(self.curr_word)
                 except:
                     self.check_word = False
@@ -402,7 +409,10 @@ class Strands:
                 level_num = i+1
                 level_num_surface = self.BOARD_FONT.render(str(level_num), True, (0,0,0))
                 text_surface = self.BOARD_FONT.render(text, True, (0,0,0))
-                pg.draw.rect(self.screen, 'lightpink', pg.Rect(x_coord, y_coord, 50, 50), border_radius=15)
+                if str(level_num) not in self.completed_levels:
+                    pg.draw.rect(self.screen, 'lightpink', pg.Rect(x_coord, y_coord, 50, 50), border_radius=15)
+                else: 
+                    pg.draw.rect(self.screen, 'deeppink3', pg.Rect(x_coord, y_coord, 50, 50), border_radius=15)
                 self.screen.blit(level_num_surface, (x_coord+15,y_coord+10))
                 if level_num % 5 == 0:
                     y_coord += 55
@@ -417,7 +427,7 @@ class Strands:
             self.channel.fadeout(4000)
 
             self.board = Board(self.screen, self.GAME_FONT, self.BOARD_FONT)
-            words = self.all_words[self.level_num]
+            words = self.all_words[self.level_num-1]
             self.word_locs = self.board.fillBoard(words)
             self.start_time = time.time()
             self.screen.blit(pg.transform.scale(self.pictures['back_button.png'], (64,64)), (0,0,0,0))
@@ -432,8 +442,8 @@ class Strands:
              
             #thread = threading.Thread(target=self.spawnLittles, args=[self.pictures['heart.png']])
             #thread.start()
-            self.screen.blit(self.pictures['pedestal.png'], (170,550,0,0))
-            self.screen.blit(self.pictures['kiera3.png'], (160,285,0,0))
+            self.screen.blit(self.pictures['pedestal.png'], (50,550,0,0))
+            self.screen.blit(self.pictures['kiera3.png'], (40,285,0,0))
             
             text_surface = home_screen_font.render(back_text, True, (0,0,0))
             self.screen.blit(text_surface, (60, 780))
@@ -455,6 +465,11 @@ class Strands:
         fpath = "./dat/text/strands.txt" 
         text = open(fpath)
         
+        stats_fp = './dat/text/stats.txt'
+        stats = open(stats_fp).readlines()
+        self.high_score = int(stats[0])
+        for line in stats[1:]:
+            self.completed_levels.append(line.strip())
         
         for filename in os.listdir(directory + '/text'): ## images
             if filename == 'dictionary_words.json':
@@ -597,7 +612,7 @@ class Strands:
                         for col in range(5):
                             if ((mouse_pos[0] -  (35+(col*70)) > 0 and mouse_pos[0] - (35+(col*70)) <= 50) 
                             and (mouse_pos[1] -  (140+(row*55)) > 0 and mouse_pos[1] - (140+(row*55)) <= 50)):
-                                self.level_num = (5*row) + col
+                                self.level_num = (5*row) + col + 1
                                 self.game_state = 'START'
                                 self.setup()
                                 
@@ -619,13 +634,12 @@ class Strands:
                         
                         self.hint_prog -= 6
                         self.num_hints += 1
-                        words = self.all_words[self.level_num][1:]
+                        words = self.all_words[self.level_num-1][1:]
                         random.shuffle(words)
                         for word in words:
                             if self.word_locs[word] not in self.found_words and self.word_locs[word][0] not in self.hint_word_squares:
                                 self.hint_word_squares.extend(self.word_locs[word])
                                 #self.board.color = 'blueviolet'
-                                print(self.hint_word_squares)
                                 self.board.colorBoard(self.screen,hint_words=self.hint_word_squares)
                                 break
                         
@@ -652,7 +666,6 @@ class Strands:
                                     elif (i,j) in self.board.openGridSquares(self.word_path[len(self.word_path)-1], open=False):
                                         self.word_path.append((i,j))
                                         self.curr_word += self.board.board[i][j]
-                                        print(self.curr_word)
                                         self.board.color = 'darkred'
                                         self.board.colorBoard(self.screen, squares=self.word_path, color = self.board.color)
                                     else:
